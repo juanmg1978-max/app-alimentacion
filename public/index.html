@@ -3,66 +3,94 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nutricionista PRO</title>
+
+<title>Nutricionista PRO MAX</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
+
 body{
- font-family:Segoe UI;
- background:#eef2f7;
+ font-family:-apple-system,Segoe UI;
+ background:#f4f6fb;
  margin:0;
 }
 
 .container{
- max-width:500px;
+ max-width:420px;
  margin:auto;
- padding:10px;
+ padding:15px;
 }
 
 .card{
  background:white;
- padding:15px;
- border-radius:12px;
- box-shadow:0 4px 12px rgba(0,0,0,.1);
+ border-radius:16px;
+ padding:18px;
  margin-bottom:15px;
+ box-shadow:0 8px 25px rgba(0,0,0,.08);
+ animation:fade .4s;
+}
+
+@keyframes fade{
+ from{opacity:0; transform:translateY(10px);}
+ to{opacity:1;}
 }
 
 button{
  width:100%;
- padding:12px;
- border:none;
- border-radius:8px;
  background:#305496;
+ border:none;
  color:white;
- font-size:16px;
- margin-top:5px;
+ padding:14px;
+ border-radius:12px;
+ font-size:15px;
+ margin-top:10px;
 }
 
 input,select{
  width:100%;
- padding:10px;
- margin-top:5px;
- border-radius:8px;
- border:1px solid #ccc;
-}
-
-.topbar{
- background:#305496;
- color:white;
- padding:10px;
- display:flex;
- justify-content:space-between;
+ padding:12px;
  border-radius:10px;
- margin-bottom:10px;
+ border:1px solid #ddd;
+ margin-top:8px;
 }
 
 video{
  width:100%;
- border-radius:10px;
+ border-radius:12px;
  margin-top:10px;
 }
+
+.topbar{
+ display:flex;
+ justify-content:space-between;
+ background:#305496;
+ color:white;
+ padding:12px;
+ border-radius:12px;
+ margin-bottom:10px;
+}
+
+.tag{
+ display:inline-block;
+ padding:5px 10px;
+ border-radius:8px;
+ font-size:12px;
+ margin-top:5px;
+}
+
+.hambre{background:#4CAF50;color:white;}
+.ansiedad{background:#ff4d4d;color:white;}
+.otros{background:#aaa;color:white;}
+
+.detecting{
+ text-align:center;
+ font-size:13px;
+ color:#888;
+ margin-top:5px;
+}
+
 </style>
 </head>
 
@@ -75,9 +103,8 @@ video{
 <button onclick="logout()">Salir</button>
 </div>
 
-<h2>🥗 Nutricionista PRO</h2>
+<h2>🥗 Nutricionista PRO MAX</h2>
 
-<!-- LOGIN -->
 <div id="loginCard" class="card">
 <input id="user" placeholder="Usuario">
 <input id="pass" type="password" placeholder="Password">
@@ -85,17 +112,22 @@ video{
 <button onclick="register()">Crear usuario</button>
 </div>
 
-<!-- APP -->
 <div id="app" style="display:none;">
 
 <div class="card">
-<button onclick="startCamera()">📷 Activar cámara</button>
-<button onclick="switchCamera()">🔄 Cambiar cámara</button>
+<b>📷 Cámara</b>
 <video id="video" autoplay playsinline></video>
+
+<button onclick="startCamera()">Activar cámara</button>
+<button onclick="switchCamera()">Cambiar cámara</button>
+
+<div class="detecting">IA detectando automáticamente...</div>
 </div>
 
 <div class="card">
-<input id="resultado" placeholder="Resultado IA">
+<b>🍽 Registro</b>
+
+<input id="resultado" placeholder="Alimento detectado">
 
 <select id="tipo">
 <option>Hambre</option>
@@ -115,7 +147,7 @@ video{
 </div>
 
 <div class="card">
-<h3>Historial</h3>
+<b>📊 Historial</b>
 <div id="lista"></div>
 </div>
 
@@ -128,7 +160,7 @@ video{
 let userData=null;
 let model;
 let stream;
-let usandoFrontal=false;
+let frontal=false;
 
 /* LOGIN */
 async function login(){
@@ -136,14 +168,12 @@ async function login(){
  let res=await fetch("/login",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-   username:user.value,
-   password:pass.value
-  })
+  body:JSON.stringify({username:user.value,password:pass.value})
  });
 
  if(res.ok){
   userData=await res.json();
+
   usuario.innerText="👤 "+userData.username;
 
   loginCard.style.display="none";
@@ -151,39 +181,30 @@ async function login(){
   topbar.style.display="flex";
 
   cargar();
- }else{
-  alert("Login incorrecto");
- }
+ }else alert("Login incorrecto");
 }
 
-/* REGISTER */
 async function register(){
  await fetch("/register",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-   username:user.value,
-   password:pass.value
-  })
+  body:JSON.stringify({username:user.value,password:pass.value})
  });
-
  alert("Usuario creado");
 }
 
 function logout(){ location.reload(); }
 
 /* IA */
-mobilenet.load().then(m => model=m);
+mobilenet.load().then(m=>model=m);
 
-/* CAMARA TRASERA */
+/* CAMARA */
 async function startCamera(){
 
- if(stream) detener();
+ if(stream) stream.getTracks().forEach(t=>t.stop());
 
- stream = await navigator.mediaDevices.getUserMedia({
-  video:{
-   facingMode: usandoFrontal ? "user" : "environment"
-  }
+ stream=await navigator.mediaDevices.getUserMedia({
+  video:{facingMode:frontal?"user":"environment"}
  });
 
  video.srcObject=stream;
@@ -191,43 +212,43 @@ async function startCamera(){
  detectarAuto();
 }
 
-/* CAMBIAR CAMARA */
 function switchCamera(){
- usandoFrontal = !usandoFrontal;
+ frontal=!frontal;
  startCamera();
 }
 
-/* DETENER */
-function detener(){
- stream.getTracks().forEach(t=>t.stop());
+/* 🔥 MAPEO INTELIGENTE */
+function interpretar(txt){
+
+ txt=txt.toLowerCase();
+
+ if(txt.includes("pizza")) return "pizza";
+ if(txt.includes("burger")||txt.includes("sandwich")) return "hamburguesa";
+ if(txt.includes("chicken")) return "pollo";
+ if(txt.includes("salad")) return "ensalada";
+ if(txt.includes("banana")||txt.includes("apple")) return "fruta";
+
+ if(txt.includes("dish")||txt.includes("plate")){
+  return "comida";
+ }
+
+ return "alimento";
 }
 
-/* IA AUTOMATICA */
+/* DETECCIÓN AUTOMÁTICA */
 function detectarAuto(){
 
  setInterval(async ()=>{
 
-  if(!model || !video.videoWidth) return;
+  if(!model||!video.videoWidth) return;
 
-  let pred = await model.classify(video);
+  let pred=await model.classify(video);
 
-  let alimentos=[];
+  let top=pred[0].className;
 
-  pred.forEach(p=>{
-   let n=p.className.toLowerCase();
+  resultado.value=interpretar(top);
 
-   if(n.includes("pizza")) alimentos.push("pizza");
-   if(n.includes("burger")) alimentos.push("hamburguesa");
-   if(n.includes("salad")) alimentos.push("ensalada");
-   if(n.includes("banana")) alimentos.push("banana");
-   if(n.includes("chicken")) alimentos.push("pollo");
-  });
-
-  if(alimentos.length){
-    resultado.value=alimentos.join("+");
-  }
-
- },2000);
+ },1500);
 }
 
 /* GUARDAR */
@@ -242,7 +263,7 @@ async function guardar(){
    alimento:resultado.value,
    tipo:tipo.value,
    periodo:periodo.value
-  })
+ })
  });
 
  cargar();
@@ -257,10 +278,15 @@ async function cargar(){
  lista.innerHTML="";
 
  data.forEach(d=>{
+
+  let tipo = d.tipo.toLowerCase();
+
   lista.innerHTML+=`
-  <div style="background:#f5f5f5;padding:8px;margin:5px;border-radius:8px">
-   ${d.fecha} - ${d.alimento}
-  </div>`;
+  <div style="margin-top:10px;padding:12px;background:#f6f7fb;border-radius:12px">
+   <b>${d.alimento}</b><br>
+   <span class="tag ${tipo}">${d.tipo}</span> - ${d.periodo}
+  </div>
+  `;
  });
 }
 
@@ -268,4 +294,3 @@ async function cargar(){
 
 </body>
 </html>
-``
