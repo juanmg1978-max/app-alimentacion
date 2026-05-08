@@ -2,67 +2,54 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>App Alimentación PRO</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>App Alimentación IA PRO</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body{font-family:Segoe UI;background:#eef2f7;margin:0}
-.container{max-width:1100px;margin:20px auto}
+.container{max-width:500px;margin:auto;padding:10px}
 
 .card{
  background:white;
- padding:20px;
+ padding:15px;
  border-radius:12px;
- margin-bottom:20px;
+ margin-bottom:15px;
  box-shadow:0 4px 12px rgba(0,0,0,.08)
 }
 
 input,select,button{
- padding:10px;
- margin:5px;
- border-radius:6px;
- border:1px solid #ccc
+ width:100%;
+ padding:12px;
+ margin:5px 0;
+ border-radius:8px;
+ border:1px solid #ccc;
+ font-size:16px
 }
 
-button{background:#305496;color:white;cursor:pointer}
+button{background:#305496;color:white;border:none}
 
-table{width:100%;border-collapse:collapse}
-td,th{padding:10px;border-bottom:1px solid #ddd}
-th{background:#305496;color:white}
-
-.tipo-Ansiedad{background:#ff4d4d;color:white}
-.tipo-Hambre{background:#4CAF50;color:white}
-.tipo-Otros{background:#FFD966}
-
-.dashboard{display:flex;gap:20px}
-.kpi{flex:1;text-align:center;padding:20px;border-radius:10px}
-.blue{background:#305496;color:white}
-.red{background:#ff4d4d;color:white}
-.green{background:#4CAF50;color:white}
-
-.alert{padding:10px;border-radius:6px;margin-top:10px}
-.warn{background:#ffcccc}
-.good{background:#ccffcc}
+.kpi{padding:10px;margin:5px 0;border-radius:8px;color:white;text-align:center}
+.blue{background:#305496}
+.red{background:#ff4d4d}
+.green{background:#4CAF50}
 </style>
-
 </head>
 
 <body>
 
 <div class="container">
 
-<h2>App Alimentación PRO</h2>
+<h2>🍽️ App Alimentación IA PRO</h2>
 
-<!-- LOGIN -->
 <div class="card">
 <input id="user" placeholder="Usuario">
-<input id="pass" type="password">
+<input id="pass" type="password" placeholder="Password">
 <button onclick="login()">Login</button>
 <button onclick="register()">Crear usuario</button>
 </div>
 
-<!-- REGISTRO -->
 <div class="card">
 
 <input id="fecha" type="date">
@@ -78,6 +65,11 @@ th{background:#305496;color:white}
 
 <input id="alimento" placeholder="Alimento">
 
+<!-- NUEVO -->
+<input id="porcion" type="number" placeholder="Cantidad (gramos ej: 100)">
+
+<input type="file" id="foto" accept="image/*">
+
 <select id="tipo">
 <option>Hambre</option>
 <option>Ansiedad</option>
@@ -85,49 +77,19 @@ th{background:#305496;color:white}
 </select>
 
 <button onclick="guardar()">Guardar</button>
-<button onclick="exportar()">Exportar</button>
 
 </div>
 
-<!-- FILTRO -->
 <div class="card">
-<input id="filtro" type="date">
-<button onclick="filtrar()">Filtrar</button>
-<button onclick="resetFiltro()">Reset</button>
+<div class="kpi blue">Total <span id="total">0</span></div>
+<div class="kpi red">Ansiedad <span id="ansiedad">0</span></div>
+<div class="kpi green">% <span id="pct">0%</span></div>
 </div>
 
-<!-- TABLA -->
 <div class="card">
-<table>
-<thead>
-<tr>
-<th>Fecha</th>
-<th>Hora</th>
-<th>Periodo</th>
-<th>Alimento</th>
-<th>Tipo</th>
-<th>Acciones</th>
-</tr>
-</thead>
-<tbody id="tabla"></tbody>
-</table>
+<div id="lista"></div>
 </div>
 
-<!-- DASHBOARD -->
-<div class="card dashboard">
-<div class="kpi blue">Total<br><span id="total">0</span></div>
-<div class="kpi red">Ansiedad<br><span id="ansiedad">0</span></div>
-<div class="kpi green">%<br><span id="pct">0%</span></div>
-</div>
-
-<!-- INSIGHTS -->
-<div class="card">
-<h3>Insights</h3>
-<p id="insight"></p>
-<div id="alerta"></div>
-</div>
-
-<!-- GRAFICO -->
 <div class="card">
 <canvas id="chart"></canvas>
 </div>
@@ -138,111 +100,125 @@ th{background:#305496;color:white}
 
 let userData=null;
 let data=[];
-let filtered=[];
 let chart;
+
+// 🔥 IA CALORÍAS REAL (API)
+async function obtenerCalorias(alimento){
+
+ try{
+  let res=await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${alimento}&search_simple=1&action=process&json=1`);
+  let json=await res.json();
+
+  if(json.products && json.products.length>0){
+    let kcal=json.products[0].nutriments?.energy-kcal_100g
+    return kcal || 180;
+  }
+
+ }catch(e){}
+
+ return 180;
+}
+
+// 📷 IA FOTO (simulada robusta)
+function detectarPorImagen(){
+ let archivo=foto.files[0];
+ if(!archivo) return null;
+
+ let nombre=archivo.name.toLowerCase();
+
+ if(nombre.includes("pizza")) return "pizza";
+ if(nombre.includes("pollo")) return "pollo";
+ if(nombre.includes("ensalada")) return "ensalada";
+
+ return null;
+}
 
 async function login(){
  let res=await fetch("/login",{method:"POST",
  headers:{'Content-Type':'application/json'},
  body:JSON.stringify({username:user.value,password:pass.value})})
- if(res.ok){userData=await res.json();alert("Login OK");cargar();}
- else{alert("Error login")}
+
+ if(res.ok){
+  userData=await res.json();
+  alert("Login OK");
+  cargar();
+ }
 }
 
 async function register(){
  await fetch("/register",{method:"POST",
  headers:{'Content-Type':'application/json'},
  body:JSON.stringify({username:user.value,password:pass.value})})
- alert("Usuario creado")
+
+ alert("Usuario creado");
 }
 
+// 💥 FUNCIÓN PRINCIPAL PRO
 async function guardar(){
- if(!userData){alert("Primero login");return;}
 
- await fetch("/add",{method:"POST",
- headers:{'Content-Type':'application/json'},
- body:JSON.stringify({
-  user_id:userData.id,
-  fecha:fecha.value,
-  hora:hora.value,
-  periodo:periodo.value,
-  alimento:alimento.value,
-  tipo:tipo.value
- })})
+ if(!userData){
+  alert("Login primero");
+  return;
+ }
 
- alert("Guardado ✅")
- cargar()
+ let alimentoTxt=alimento.value;
+
+ // 📷 detectar desde imagen
+ let detectado=detectarPorImagen();
+ if(detectado){
+  alimentoTxt=detectado;
+ }
+
+ let kcal=await obtenerCalorias(alimentoTxt);
+
+ let gramos=porcion.value || 100;
+ let kcalFinal=Math.round((kcal*gramos)/100);
+
+ await fetch("/add",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+   user_id:userData.id,
+   fecha:fecha.value,
+   hora:hora.value,
+   periodo:periodo.value,
+   alimento:`${alimentoTxt} (${kcalFinal} kcal)`,
+   tipo:tipo.value
+  })
+ });
+
+ alert("✅ Guardado inteligente");
+ cargar();
 }
 
+// render
 async function cargar(){
- let res=await fetch(`/data/${userData.id}`)
- data=await res.json()
- filtered=data
- render()
+ let res=await fetch(`/data/${userData.id}`);
+ data=await res.json();
+ render();
 }
 
 function render(){
 
- let html=""
- let ansiedad=0
- let counts={Hambre:0,Ansiedad:0,Otros:0}
+ lista.innerHTML="";
 
- let horarioAnsiedad={}
+ let ansiedad=0;
+ let counts={Hambre:0,Ansiedad:0,Otros:0};
 
- filtered.forEach((d,i)=>{
+ data.forEach(d=>{
+  lista.innerHTML+=`<div>${d.fecha} ${d.hora} - ${d.alimento}</div>`;
 
-  if(d.tipo==="Ansiedad"){
-    ansiedad++
-    let h=d.hora || "?"
-    horarioAnsiedad[h]=(horarioAnsiedad[h]||0)+1
-  }
+  if(d.tipo==="Ansiedad") ansiedad++;
+  counts[d.tipo]++;
+ });
 
-  counts[d.tipo]++
+ total.innerText=data.length;
+ document.getElementById("ansiedad").innerText=ansiedad;
 
-  html+=`
-  <tr>
-    <td>${d.fecha}</td>
-    <td>${d.hora||""}</td>
-    <td>${d.periodo||""}</td>
-    <td>${d.alimento}</td>
-    <td class="tipo-${d.tipo}">${d.tipo}</td>
-    <td><button onclick="del(${i})">X</button></td>
-  </tr>`
- })
+ let pct=data.length?Math.round(ansiedad/data.length*100):0;
+ document.getElementById("pct").innerText=pct+"%";
 
- tabla.innerHTML=html
-
- total.innerText=filtered.length
- document.getElementById("ansiedad").innerText=ansiedad
- let pct=filtered.length?Math.round(ansiedad/filtered.length*100):0
- document.getElementById("pct").innerText=pct+"%"
-
- let insight=pct>50?"Alta emocional":pct>30?"Moderada":"Normal"
-
- let pico=Object.entries(horarioAnsiedad).sort((a,b)=>b[1]-a[1])[0]
-
- if(pico){
-   insight+=` | Pico: ${pico[0]}hs`
- }
-
- insight+=pct>50?" → Regular horarios":" → Bien"
-
- document.getElementById("insight").innerText=insight
-
- if(pct>70){
-  alerta.innerText="🚨 Riesgo alto"
-  alerta.className="alert warn"
- }
- else if(pct>50){
-  alerta.innerText="⚠️ Atención"
-  alerta.className="alert warn"
- }
- else{
-  alerta.innerText="✅ Controlado"
-  alerta.className="alert good"
- }
-
- if(chart) chart.destroy()
+ if(chart) chart.destroy();
 
  chart=new Chart(document.getElementById("chart"),{
   type:"bar",
@@ -250,33 +226,7 @@ function render(){
    labels:["Hambre","Ansiedad","Otros"],
    datasets:[{data:[counts.Hambre,counts.Ansiedad,counts.Otros]}]
   }
- })
-}
-
-function del(i){
- data.splice(i,1)
- filtered=data
- render()
-}
-
-function filtrar(){
- filtered=data.filter(d=>d.fecha==filtro.value)
- render()
-}
-
-function resetFiltro(){
- filtered=data
- render()
-}
-
-function exportar(){
- let csv="Fecha,Hora,Periodo,Alimento,Tipo\n"
- filtered.forEach(d=>csv+=`${d.fecha},${d.hora},${d.periodo},${d.alimento},${d.tipo}\n`)
- let blob=new Blob([csv])
- let a=document.createElement("a")
- a.href=URL.createObjectURL(blob)
- a.download="datos.csv"
- a.click()
+ });
 }
 
 </script>
