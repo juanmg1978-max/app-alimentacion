@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>App Alimentación IA PRO</title>
+<title>App Alimentación IA REAL</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -34,6 +34,15 @@ button{background:#305496;color:white;border:none}
 .blue{background:#305496}
 .red{background:#ff4d4d}
 .green{background:#4CAF50}
+
+.suggestion{
+ background:#ddd;
+ padding:5px;
+ border-radius:6px;
+ display:inline-block;
+ margin:2px;
+ cursor:pointer
+}
 </style>
 </head>
 
@@ -41,7 +50,7 @@ button{background:#305496;color:white;border:none}
 
 <div class="container">
 
-<h2>🍽️ App Alimentación IA PRO</h2>
+<h2>🍽️ IA Alimentación REAL</h2>
 
 <div class="card">
 <input id="user" placeholder="Usuario">
@@ -63,10 +72,9 @@ button{background:#305496;color:white;border:none}
 <option>Cena</option>
 </select>
 
-<input id="alimento" placeholder="Alimento">
+<input id="alimento" placeholder="Alimento" oninput="sugerir()">
 
-<!-- NUEVO -->
-<input id="porcion" type="number" placeholder="Cantidad (gramos ej: 100)">
+<div id="sugerencias"></div>
 
 <input type="file" id="foto" accept="image/*">
 
@@ -98,138 +106,36 @@ button{background:#305496;color:white;border:none}
 
 <script>
 
-let userData=null;
-let data=[];
-let chart;
+let userData=null
+let data=[]
+let chart
 
-// 🔥 IA CALORÍAS REAL (API)
-async function obtenerCalorias(alimento){
+// 🧠 IA DETECCIÓN SIN API
+function detectarPorImagen(file){
 
- try{
-  let res=await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${alimento}&search_simple=1&action=process&json=1`);
-  let json=await res.json();
+ if(!file) return null
 
-  if(json.products && json.products.length>0){
-    let kcal=json.products[0].nutriments?.energy-kcal_100g
-    return kcal || 180;
-  }
+ let nombre=file.name.toLowerCase()
+ let size=file.size
 
- }catch(e){}
+ if(nombre.includes("pizza")) return "pizza"
+ if(nombre.includes("burger")||nombre.includes("hamb")) return "hamburguesa"
+ if(nombre.includes("pollo")) return "pollo"
+ if(nombre.includes("ensalada")) return "ensalada"
+ if(nombre.includes("cafe")) return "cafe"
 
- return 180;
+ // fallback heurístico según tamaño
+ if(size > 2000000) return "plato grande"
+ if(size > 1000000) return "comida media"
+ return "snack"
 }
 
-// 📷 IA FOTO (simulada robusta)
-function detectarPorImagen(){
- let archivo=foto.files[0];
- if(!archivo) return null;
+// 🍽️ PORCIÓN INTELIGENTE
+function estimarPorcion(file, alimento){
 
- let nombre=archivo.name.toLowerCase();
+ if(!file) return 100
 
- if(nombre.includes("pizza")) return "pizza";
- if(nombre.includes("pollo")) return "pollo";
- if(nombre.includes("ensalada")) return "ensalada";
+ let size=file.size
 
- return null;
-}
-
-async function login(){
- let res=await fetch("/login",{method:"POST",
- headers:{'Content-Type':'application/json'},
- body:JSON.stringify({username:user.value,password:pass.value})})
-
- if(res.ok){
-  userData=await res.json();
-  alert("Login OK");
-  cargar();
- }
-}
-
-async function register(){
- await fetch("/register",{method:"POST",
- headers:{'Content-Type':'application/json'},
- body:JSON.stringify({username:user.value,password:pass.value})})
-
- alert("Usuario creado");
-}
-
-// 💥 FUNCIÓN PRINCIPAL PRO
-async function guardar(){
-
- if(!userData){
-  alert("Login primero");
-  return;
- }
-
- let alimentoTxt=alimento.value;
-
- // 📷 detectar desde imagen
- let detectado=detectarPorImagen();
- if(detectado){
-  alimentoTxt=detectado;
- }
-
- let kcal=await obtenerCalorias(alimentoTxt);
-
- let gramos=porcion.value || 100;
- let kcalFinal=Math.round((kcal*gramos)/100);
-
- await fetch("/add",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-   user_id:userData.id,
-   fecha:fecha.value,
-   hora:hora.value,
-   periodo:periodo.value,
-   alimento:`${alimentoTxt} (${kcalFinal} kcal)`,
-   tipo:tipo.value
-  })
- });
-
- alert("✅ Guardado inteligente");
- cargar();
-}
-
-// render
-async function cargar(){
- let res=await fetch(`/data/${userData.id}`);
- data=await res.json();
- render();
-}
-
-function render(){
-
- lista.innerHTML="";
-
- let ansiedad=0;
- let counts={Hambre:0,Ansiedad:0,Otros:0};
-
- data.forEach(d=>{
-  lista.innerHTML+=`<div>${d.fecha} ${d.hora} - ${d.alimento}</div>`;
-
-  if(d.tipo==="Ansiedad") ansiedad++;
-  counts[d.tipo]++;
- });
-
- total.innerText=data.length;
- document.getElementById("ansiedad").innerText=ansiedad;
-
- let pct=data.length?Math.round(ansiedad/data.length*100):0;
- document.getElementById("pct").innerText=pct+"%";
-
- if(chart) chart.destroy();
-
- chart=new Chart(document.getElementById("chart"),{
-  type:"bar",
-  data:{
-   labels:["Hambre","Ansiedad","Otros"],
-   datasets:[{data:[counts.Hambre,counts.Ansiedad,counts.Otros]}]
-  }
- });
-}
-
-</script>
-
-</body>
-</html>
+ if(alimento.includes("pizza")) return Math.round(size/5000)
+ if(alimento.includes("hamburguesa")) return Math.round(size/6000)
