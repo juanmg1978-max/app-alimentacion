@@ -3,94 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Nutricionista PRO MAX</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
-
-body{
- font-family:-apple-system,Segoe UI;
- background:#f4f6fb;
- margin:0;
-}
-
-.container{
- max-width:420px;
- margin:auto;
- padding:15px;
-}
-
+body{font-family:Segoe UI;background:#f4f6fb;margin:0}
+.container{max-width:420px;margin:auto;padding:15px}
 .card{
  background:white;
  border-radius:16px;
  padding:18px;
  margin-bottom:15px;
  box-shadow:0 8px 25px rgba(0,0,0,.08);
- animation:fade .4s;
 }
-
-@keyframes fade{
- from{opacity:0; transform:translateY(10px);}
- to{opacity:1;}
-}
-
 button{
  width:100%;
  background:#305496;
- border:none;
  color:white;
- padding:14px;
- border-radius:12px;
- font-size:15px;
- margin-top:10px;
-}
-
-input,select{
- width:100%;
+ border:none;
  padding:12px;
  border-radius:10px;
- border:1px solid #ddd;
  margin-top:8px;
 }
-
-video{
+.btn2{width:48%}
+input,select{
  width:100%;
- border-radius:12px;
- margin-top:10px;
+ padding:10px;
+ margin-top:8px;
+ border-radius:10px;
+ border:1px solid #ccc;
 }
-
+video{width:100%;border-radius:10px}
 .topbar{
- display:flex;
- justify-content:space-between;
- background:#305496;
- color:white;
- padding:12px;
- border-radius:12px;
+ display:flex;justify-content:space-between;
+ background:#305496;color:white;
+ padding:10px;border-radius:10px;
  margin-bottom:10px;
 }
-
-.tag{
- display:inline-block;
- padding:5px 10px;
- border-radius:8px;
- font-size:12px;
- margin-top:5px;
-}
-
-.hambre{background:#4CAF50;color:white;}
-.ansiedad{background:#ff4d4d;color:white;}
-.otros{background:#aaa;color:white;}
-
-.detecting{
- text-align:center;
- font-size:13px;
- color:#888;
- margin-top:5px;
-}
-
 </style>
 </head>
 
@@ -107,7 +58,7 @@ video{
 
 <div id="loginCard" class="card">
 <input id="user" placeholder="Usuario">
-<input id="pass" type="password" placeholder="Password">
+<input id="pass" type="password">
 <button onclick="login()">Login</button>
 <button onclick="register()">Crear usuario</button>
 </div>
@@ -117,24 +68,17 @@ video{
 <div class="card">
 <b>📷 Cámara</b>
 <video id="video" autoplay playsinline></video>
-
 <button onclick="startCamera()">Activar cámara</button>
-<button onclick="switchCamera()">Cambiar cámara</button>
-
-<div class="detecting">IA detectando automáticamente...</div>
+<button onclick="switchCam()">Cambiar cámara</button>
 </div>
 
 <div class="card">
-<b>🍽 Registro</b>
-
-<input id="resultado" placeholder="Alimento detectado">
-
+<input id="resultado" placeholder="Alimento">
 <select id="tipo">
 <option>Hambre</option>
 <option>Ansiedad</option>
 <option>Otros</option>
 </select>
-
 <select id="periodo">
 <option>Desayuno</option>
 <option>Almuerzo</option>
@@ -142,12 +86,10 @@ video{
 <option>Merienda</option>
 <option>Colación</option>
 </select>
-
 <button onclick="guardar()">Guardar</button>
 </div>
 
 <div class="card">
-<b>📊 Historial</b>
 <div id="lista"></div>
 </div>
 
@@ -157,137 +99,149 @@ video{
 
 <script>
 
-let userData=null;
-let model;
-let stream;
-let frontal=false;
+let userData=null
+let model
+let stream
+let frontal=false
 
-/* LOGIN */
+mobilenet.load().then(m=>model=m)
+
+// LOGIN
 async function login(){
 
- let res=await fetch("/login",{
+ let r=await fetch("/login",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({username:user.value,password:pass.value})
  });
 
- if(res.ok){
-  userData=await res.json();
+ if(!r.ok) return alert("Error login")
 
-  usuario.innerText="👤 "+userData.username;
+ userData=await r.json()
 
-  loginCard.style.display="none";
-  app.style.display="block";
-  topbar.style.display="flex";
+ usuario.innerText="👤 "+userData.username
+ loginCard.style.display="none"
+ app.style.display="block"
+ topbar.style.display="flex"
 
-  cargar();
- }else alert("Login incorrecto");
+ cargar()
 }
 
 async function register(){
- await fetch("/register",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({username:user.value,password:pass.value})
- });
- alert("Usuario creado");
+ await fetch("/register",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({username:user.value,password:pass.value})})
+ alert("Creado")
 }
 
-function logout(){ location.reload(); }
+function logout(){location.reload()}
 
-/* IA */
-mobilenet.load().then(m=>model=m);
-
-/* CAMARA */
+// CAMARA
 async function startCamera(){
 
- if(stream) stream.getTracks().forEach(t=>t.stop());
+ if(stream) stream.getTracks().forEach(t=>t.stop())
 
  stream=await navigator.mediaDevices.getUserMedia({
   video:{facingMode:frontal?"user":"environment"}
- });
+ })
 
- video.srcObject=stream;
-
- detectarAuto();
+ video.srcObject=stream
+ detectar()
 }
 
-function switchCamera(){
- frontal=!frontal;
- startCamera();
+function switchCam(){
+ frontal=!frontal
+ startCamera()
 }
 
-/* 🔥 MAPEO INTELIGENTE */
-function interpretar(txt){
+// IA
+function map(txt){
 
- txt=txt.toLowerCase();
+ txt=txt.toLowerCase()
 
- if(txt.includes("pizza")) return "pizza";
- if(txt.includes("burger")||txt.includes("sandwich")) return "hamburguesa";
- if(txt.includes("chicken")) return "pollo";
- if(txt.includes("salad")) return "ensalada";
- if(txt.includes("banana")||txt.includes("apple")) return "fruta";
+ if(txt.includes("pizza")) return "pizza"
+ if(txt.includes("burger")) return "hamburguesa"
+ if(txt.includes("chicken")) return "pollo"
+ if(txt.includes("salad")) return "ensalada"
 
- if(txt.includes("dish")||txt.includes("plate")){
-  return "comida";
- }
-
- return "alimento";
+ return "comida"
 }
 
-/* DETECCIÓN AUTOMÁTICA */
-function detectarAuto(){
+function detectar(){
 
  setInterval(async ()=>{
 
-  if(!model||!video.videoWidth) return;
+  if(!model) return
 
-  let pred=await model.classify(video);
+  let p=await model.classify(video)
 
-  let top=pred[0].className;
+  resultado.value=map(p[0].className)
 
-  resultado.value=interpretar(top);
-
- },1500);
+ },1500)
 }
 
-/* GUARDAR */
+// CRUD
 async function guardar(){
 
- await fetch("/add",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-   user_id:userData.id,
-   fecha:new Date().toLocaleDateString(),
-   alimento:resultado.value,
-   tipo:tipo.value,
-   periodo:periodo.value
- })
- });
+ await fetch("/add",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({
+  user_id:userData.id,
+  fecha:new Date().toLocaleDateString(),
+  alimento:resultado.value,
+  tipo:tipo.value,
+  periodo:periodo.value
+ })})
 
- cargar();
+ cargar()
 }
 
-/* CARGAR */
+async function borrar(id){
+ if(confirm("Eliminar?")){
+  await fetch("/delete",{method:"POST",
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({id})
+  })
+  cargar()
+ }
+}
+
+async function editar(d){
+
+ let nuevo=prompt("Editar",d.alimento)
+ if(!nuevo) return
+
+ await fetch("/update",{method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+   id:d.id,
+   alimento:nuevo,
+   tipo:d.tipo,
+   periodo:d.periodo
+  })
+ })
+
+ cargar()
+}
+
+// LOAD
 async function cargar(){
 
- let res=await fetch(`/data/${userData.id}`);
- let data=await res.json();
+ let r=await fetch(`/data/${userData.id}`)
+ let data=await r.json()
 
- lista.innerHTML="";
+ lista.innerHTML=""
 
  data.forEach(d=>{
-
-  let tipo = d.tipo.toLowerCase();
-
   lista.innerHTML+=`
-  <div style="margin-top:10px;padding:12px;background:#f6f7fb;border-radius:12px">
-   <b>${d.alimento}</b><br>
-   <span class="tag ${tipo}">${d.tipo}</span> - ${d.periodo}
-  </div>
-  `;
- });
+   <div class="card">
+    <b>${d.alimento}</b><br>
+    ${d.tipo} - ${d.periodo}<br>
+    <button class="btn2" onclick='editar(${JSON.stringify(d)})'>✏️</button>
+    <button class="btn2" onclick='borrar(${d.id})'>🗑</button>
+   </div>
+  `
+ })
 }
 
 </script>
