@@ -1,84 +1,101 @@
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
-const cors = require("cors");
-const path = require("path");
+const crypto = require("crypto");
 
 const app = express();
+
 app.use(express.json());
-app.use(cors());
-
-const db = new sqlite3.Database("db.sqlite");
-
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT,
-    password TEXT
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS registros (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    fecha TEXT,
-    hora TEXT,
-    periodo TEXT,
-    alimento TEXT,
-    tipo TEXT
-  )`);
-});
-
 app.use(express.static("public"));
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+const db = new sqlite3.Database("./db.sqlite");
 
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
+/* 🔒 HASH SIMPLE (SIN LIBRERÍAS EXTRAS) */
+function hashPassword(password){
+ return crypto.createHash("sha256").update(password).digest("hex");
+}
 
-  db.get(
-    "SELECT * FROM users WHERE username=? AND password=?",
-    [username, password],
-    (err, row) => {
-      if (row) res.json(row);
-      else res.status(401).json({ error: "Login incorrecto" });
-    }
-  );
-});
+/* tablas */
+db.run(`CREATE TABLE IF NOT EXISTS users(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ username TEXT UNIQUE,
+ password TEXT
+)`);
 
+db.run(`CREATE TABLE IF NOT EXISTS registros(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER,
+ fecha TEXT,
+ hora TEXT,
+ periodo TEXT,
+ alimento TEXT,
+ tipo TEXT
+)`);
+
+/* REGISTER */
 app.post("/register", (req, res) => {
-  const { username, password } = req.body;
 
-  db.run(
-    "INSERT INTO users (username,password) VALUES (?,?)",
-    [username, password],
-    function () {
-      res.json({ id: this.lastID });
+ const hash = hashPassword(req.body.password);
+
+ db.run(
+  "INSERT INTO users (username,password) VALUES (?,?)",
+  [req.body.username, hash],
+  (err) => {
+    if(err) return res.status(400).send("Usuario existente");
+    res.send("OK");
+  }
+ );
+});
+
+/* LOGIN */
+app.post("/login", (req, res) => {
+
+ db.get(
+  "SELECT * FROM users WHERE username=?",
+  [req.body.username],
+  (err, user) => {
+
+    if(!user) return res.status(400).send("No existe");
+
+    const hash = hashPassword(req.body.password);
+
+    if(hash !== user.password){
+      return res.status(400).send("Password incorrecto");
     }
-  );
+
+    res.json(user);
+  }
+ );
 });
 
+/* GUARDAR */
 app.post("/add", (req, res) => {
-  const { user_id, fecha, hora, periodo, alimento, tipo } = req.body;
 
-  db.run(
-    `INSERT INTO registros (user_id,fecha,hora,periodo,alimento,tipo)
-     VALUES (?,?,?,?,?,?)`,
-    [user_id, fecha, hora, periodo, alimento, tipo],
-    () => res.json({ ok: true })
-  );
+ db.run(
+  `INSERT INTO registros 
+   (user_id,fecha,hora,periodo,alimento,tipo)
+   VALUES (?,?,?,?,?,?)`,
+  [
+   req.body.user_id,
+   req.body.fecha,
+   req.body.hora || "",
+   req.body.periodo,
+   req.body.alimento,
+   req.body.tipo
+  ],
+  () => res.send("OK")
+ );
 });
 
+/* OBTENER */
 app.get("/data/:id", (req, res) => {
-  db.all(
-    "SELECT * FROM registros WHERE user_id=?",
-    [req.params.id],
-    (err, rows) => res.json(rows)
-  );
-});
-app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/public/index.html");
+
+ db.all(
+  "SELECT * FROM registros WHERE user_id=?",
+  [req.params.id],
+  (err, rows) => res.json(rows)
+ );
 });
 
-app.listen(3000);
-``
+/* SERVER */
+const PORT = process.env.PORT || 3000;
+app.listen(PORT);
