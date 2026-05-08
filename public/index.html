@@ -5,13 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nutricionista IA PRO MAX</title>
 
-<!-- ✅ SCRIPTS CORRECTOS -->
+<!-- ✅ SCRIPTS BIEN ESCRITOS -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<!-- ✅ PWA -->
-<link rel="manifest" href="/manifest.json">
 
 <style>
 body{font-family:Segoe UI;background:#eef2f7;margin:0}
@@ -27,6 +24,15 @@ button{width:100%;padding:10px;margin-top:5px}
 .green{background:#4CAF50}
 .orange{background:#FFA500}
 .red{background:#ff4d4d}
+
+.topbar{
+ background:#305496;
+ color:white;
+ padding:10px;
+ border-radius:8px;
+ display:flex;
+ justify-content:space-between
+}
 </style>
 </head>
 
@@ -34,12 +40,28 @@ button{width:100%;padding:10px;margin-top:5px}
 
 <div class="container">
 
+<!-- 🔐 TOPBAR -->
+<div id="topbar" class="topbar" style="display:none;">
+<span id="usuario"></span>
+<button onclick="logout()">Salir</button>
+</div>
+
 <h2>🥗 Nutricionista IA PRO MAX</h2>
+
+<!-- LOGIN -->
+<div id="loginCard" class="card">
+<input id="user" placeholder="Usuario">
+<input id="pass" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<button onclick="register()">Crear usuario</button>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;">
 
 <div class="card">
 <button onclick="startCamera()">📷 Activar cámara</button>
-<video id="video" autoplay></video>
-<button onclick="detectar()">🧠 Analizar comida</button>
+<video id="video" autoplay muted></video>
 </div>
 
 <div class="card">
@@ -63,14 +85,159 @@ button{width:100%;padding:10px;margin-top:5px}
 </div>
 
 <div class="card">
-<input id="objetivo" type="number" placeholder="Kcal objetivo diario (ej 2000)">
-<button onclick="setObjetivo()">Guardar objetivo</button>
+<div class="kpi blue">Ansiedad % <span id="ansiedad">0%</span></div>
 </div>
 
 <div class="card">
-<textarea id="disponibles" placeholder="Alimentos disponibles"></textarea>
-<button onclick="generarPlan()">🍳 Generar plan semanal</button>
-<div id="plan"></div>
+<canvas id="chart"></canvas>
 </div>
 
 <div class="card">
+<div id="lista"></div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+let userData=null;
+let model;
+let stream;
+let intervaloIA;
+let chart;
+
+/* LOGIN */
+async function login(){
+
+ let res=await fetch("/login",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    username:user.value,
+    password:pass.value
+  })
+ })
+
+ if(res.ok){
+  userData=await res.json();
+
+  usuario.innerText="👤 "+userData.username;
+
+  loginCard.style.display="none";
+  app.style.display="block";
+  topbar.style.display="flex";
+
+  cargar();
+ }else{
+  alert("Login incorrecto");
+ }
+}
+
+/* REGISTER */
+async function register(){
+
+ await fetch("/register",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    username:user.value,
+    password:pass.value
+  })
+ });
+
+ alert("Usuario creado");
+}
+
+/* LOGOUT */
+function logout(){
+ location.reload();
+}
+
+/* IA */
+async function init(){
+ model=await mobilenet.load();
+}
+init();
+
+/* CAMARA + IA AUTO */
+async function startCamera(){
+
+ stream=await navigator.mediaDevices.getUserMedia({video:true});
+ video.srcObject=stream;
+
+ intervaloIA=setInterval(async ()=>{
+
+  if(!model) return;
+
+  let pred=await model.classify(video);
+
+  let alimentos=[];
+
+  pred.forEach(p=>{
+   let n=p.className.toLowerCase();
+
+   if(n.includes("pizza")) alimentos.push("pizza");
+   if(n.includes("burger")) alimentos.push("hamburguesa");
+   if(n.includes("salad")) alimentos.push("ensalada");
+   if(n.includes("banana")) alimentos.push("banana");
+   if(n.includes("chicken")) alimentos.push("pollo");
+  });
+
+  if(alimentos.length){
+    resultado.value = alimentos.join("+");
+  }
+
+ },2000);
+}
+
+/* KCAL */
+function kcal(a){
+ if(a==="pizza") return 280;
+ if(a==="hamburguesa") return 320;
+ if(a==="ensalada") return 120;
+ if(a==="banana") return 90;
+ if(a==="pollo") return 220;
+ return 180;
+}
+
+/* GUARDAR */
+async function guardar(){
+
+ let parts=resultado.value.split("+");
+ let total=0;
+
+ parts.forEach(p=> total+=kcal(p));
+
+ await fetch("/add",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    user_id:userData.id,
+    fecha:new Date().toLocaleDateString(),
+    periodo:periodo.value,
+    alimento:resultado.value,
+    tipo:tipo.value
+  })
+ });
+
+ cargar();
+}
+
+/* CARGAR */
+async function cargar(){
+
+ let res=await fetch(`/data/${userData.id}`);
+ let data=await res.json();
+
+ render(data);
+}
+
+/* RENDER */
+function render(data){
+
+ lista.innerHTML="";
+
+ let ansiedad=0;
+
