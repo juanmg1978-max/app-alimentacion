@@ -2,92 +2,125 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>App Alimentación PRO</title>
+<title>App Alimentación</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body{
-  font-family:Segoe UI;
-  background:#eef2f7;
-  margin:0;
-}
-body{
-  font-family:Segoe UI;
-  background:#eef2f7;
-  margin:0;
-}
+body { font-family: Arial; padding: 20px; }
+input, select, button { margin: 5px; }
+</style>
+</head>
 
-/* CONTENEDOR */
-.container{
-  max-width:1100px;
-  margin:20px auto;
-}
+<body>
 
-/* CARDS */
-.card{
-  background:white;
-  padding:20px;
-  border-radius:12px;
-  margin-bottom:20px;
-  box-shadow:0 4px 12px rgba(0,0,0,.08);
-}
+<h2>Login</h2>
+<input id="user" placeholder="Usuario">
+<input id="pass" type="password">
+<button onclick="login()">Login</button>
+<button onclick="register()">Crear usuario</button>
 
-/* GRID */
-.grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:10px;
-}
+<hr>
 
-/* INPUTS */
-input,select,button{
-  padding:10px;
-  border-radius:6px;
-  border:1px solid #ccc;
-  width:100%;
-}
+<h2>Registro</h2>
 
-button{
-  background:#305496;
-  color:white;
-  border:none;
-  cursor:pointer;
-}
+<input id="fecha" type="date">
+<input id="hora" type="time">
 
-/* TABLA */
-table{
-  width:100%;
-  border-collapse:collapse;
-}
+<select id="periodo">
+<option>Desayuno</option>
+<option>Almuerzo</option>
+<option>Merienda</option>
+<option>Colación</option>
+<option>Cena</option>
+</select>
 
-th,td{
-  padding:10px;
-  border-bottom:1px solid #ddd;
-}
+<input id="alimento" placeholder="Alimento">
 
-th{
-  background:#305496;
-  color:white;
-}
+<select id="tipo">
+<option>Hambre</option>
+<option>Ansiedad</option>
+<option>Otros</option>
+</select>
 
-/* SEMAFORO */
-.tipo-Ansiedad{background:#ff4d4d;color:white}
-.tipo-Hambre{background:#4CAF50;color:white}
-.tipo-Otros{background:#FFD966}
+<button onclick="guardar()">Guardar</button>
 
-/* DASHBOARD */
-.dashboard{
-  display:flex;
-  gap:20px;
+<h3>Datos</h3>
+<ul id="lista"></ul>
+
+<script>
+
+let userData = null;
+
+async function login(){
+ let res = await fetch("/login",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    username:user.value,
+    password:pass.value
+  })
+ });
+
+ if(res.ok){
+  userData = await res.json();
+  cargar();
+ } else {
+  alert("Login incorrecto");
+ }
 }
 
-.kpi{
-  flex:1;
-  text-align:center;
-  padding:20px;
-  border-radius:10px;
-  font-size:18px;
+async function register(){
+ await fetch("/register",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    username:user.value,
+    password:pass.value
+  })
+ });
+
+ alert("Usuario creado");
 }
 
+async function guardar(){
+
+ if(!userData){
+  alert("Primero hacer login");
+  return;
+ }
+
+ await fetch("/add",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    user_id:userData.id,
+    fecha:fecha.value,
+    hora:hora.value,
+    periodo:periodo.value,
+    alimento:alimento.value,
+    tipo:tipo.value
+  })
+ });
+
+ cargar();
+}
+
+async function cargar(){
+
+ let res = await fetch(`/data/${userData.id}`);
+ let data = await res.json();
+
+ lista.innerHTML = "";
+
+ data.forEach(d=>{
+  lista.innerHTML += `
+    <li>${d.fecha} ${d.hora} - ${d.alimento} (${d.tipo})</li>
+  `;
+ });
+}
+
+</script>
+
+</body>
+</html>
