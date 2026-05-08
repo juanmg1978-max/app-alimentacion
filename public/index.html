@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>App Alimentación IA REAL</title>
+<title>Nutricionista PRO</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -11,38 +11,19 @@
 body{font-family:Segoe UI;background:#eef2f7;margin:0}
 .container{max-width:500px;margin:auto;padding:10px}
 
-.card{
- background:white;
- padding:15px;
- border-radius:12px;
- margin-bottom:15px;
- box-shadow:0 4px 12px rgba(0,0,0,.08)
-}
+.card{background:white;padding:15px;border-radius:12px;margin-bottom:15px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
 
-input,select,button{
- width:100%;
- padding:12px;
- margin:5px 0;
- border-radius:8px;
- border:1px solid #ccc;
- font-size:16px
-}
+input,select,button{width:100%;padding:12px;margin:5px 0;border-radius:8px;border:1px solid #ccc;font-size:16px}
 
 button{background:#305496;color:white;border:none}
 
-.kpi{padding:10px;margin:5px 0;border-radius:8px;color:white;text-align:center}
+.topbar{background:#305496;color:white;padding:10px;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between}
+
+.kpi{padding:10px;color:white;border-radius:8px;margin:5px 0;text-align:center}
 .blue{background:#305496}
 .red{background:#ff4d4d}
 .green{background:#4CAF50}
 
-.suggestion{
- background:#ddd;
- padding:5px;
- border-radius:6px;
- display:inline-block;
- margin:2px;
- cursor:pointer
-}
 </style>
 </head>
 
@@ -50,14 +31,21 @@ button{background:#305496;color:white;border:none}
 
 <div class="container">
 
-<h2>🍽️ IA Alimentación REAL</h2>
+<div id="topbar" class="topbar" style="display:none;">
+<span id="usuario"></span>
+<button onclick="logout()">Salir</button>
+</div>
 
-<div class="card">
+<h2>🥗 Nutricionista IA PRO</h2>
+
+<div id="loginCard" class="card">
 <input id="user" placeholder="Usuario">
-<input id="pass" type="password" placeholder="Password">
+<input id="pass" type="password">
 <button onclick="login()">Login</button>
 <button onclick="register()">Crear usuario</button>
 </div>
+
+<div id="app" style="display:none;">
 
 <div class="card">
 
@@ -72,9 +60,7 @@ button{background:#305496;color:white;border:none}
 <option>Cena</option>
 </select>
 
-<input id="alimento" placeholder="Alimento" oninput="sugerir()">
-
-<div id="sugerencias"></div>
+<input id="alimento" placeholder="Alimento">
 
 <input type="file" id="foto" accept="image/*">
 
@@ -89,7 +75,7 @@ button{background:#305496;color:white;border:none}
 </div>
 
 <div class="card">
-<div class="kpi blue">Total <span id="total">0</span></div>
+<div class="kpi blue">Total kcal <span id="kcalTotal">0</span></div>
 <div class="kpi red">Ansiedad <span id="ansiedad">0</span></div>
 <div class="kpi green">% <span id="pct">0%</span></div>
 </div>
@@ -104,38 +90,157 @@ button{background:#305496;color:white;border:none}
 
 </div>
 
+</div>
+
 <script>
 
 let userData=null
 let data=[]
 let chart
 
-// 🧠 IA DETECCIÓN SIN API
-function detectarPorImagen(file){
-
- if(!file) return null
-
- let nombre=file.name.toLowerCase()
- let size=file.size
-
- if(nombre.includes("pizza")) return "pizza"
- if(nombre.includes("burger")||nombre.includes("hamb")) return "hamburguesa"
- if(nombre.includes("pollo")) return "pollo"
- if(nombre.includes("ensalada")) return "ensalada"
- if(nombre.includes("cafe")) return "cafe"
-
- // fallback heurístico según tamaño
- if(size > 2000000) return "plato grande"
- if(size > 1000000) return "comida media"
- return "snack"
+// 💾 STORAGE LOCAL
+function getLocal(){
+ return JSON.parse(localStorage.getItem("datos") || "[]")
 }
 
-// 🍽️ PORCIÓN INTELIGENTE
-function estimarPorcion(file, alimento){
+function saveLocal(arr){
+ localStorage.setItem("datos", JSON.stringify(arr))
+}
 
- if(!file) return 100
+// IA DETECCIÓN SIMPLE
+function detectar(file){
+ if(!file) return "comida"
+ let n=file.name.toLowerCase()
+ if(n.includes("pizza")) return "pizza"
+ if(n.includes("pollo")) return "pollo"
+ if(n.includes("ensalada")) return "ensalada"
+ return "comida"
+}
 
- let size=file.size
+// CALORÍAS
+function kcalBase(a){
+ if(a.includes("pizza")) return 280
+ if(a.includes("pollo")) return 220
+ if(a.includes("ensalada")) return 120
+ return 180
+}
 
- if(alimento.includes("pizza")) return Math.round(size/5000)
- if(alimento.includes("hamburguesa")) return Math.round(size/6000)
+// LOGIN
+async function login(){
+ let res=await fetch("/login",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({username:user.value,password:pass.value})})
+
+ if(res.ok){
+  userData=await res.json()
+  usuario.innerText="👤 "+userData.username
+  loginCard.style.display="none"
+  app.style.display="block"
+  topbar.style.display="flex"
+
+  cargar()
+ }
+}
+
+async function register(){
+ await fetch("/register",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({username:user.value,password:pass.value})})
+
+ alert("Usuario creado")
+}
+
+function logout(){
+ userData=null
+ app.style.display="none"
+ loginCard.style.display="block"
+ topbar.style.display="none"
+}
+
+// GUARDAR (LOCAL + BACKEND)
+async function guardar(){
+
+ if(!userData){alert("Login primero");return}
+
+ let file=foto.files[0]
+ let alimentoTxt=alimento.value || detectar(file)
+
+ let gramos=file ? Math.round(file.size/8000) : 100
+ let kcal=Math.round((kcalBase(alimentoTxt)*gramos)/100)
+
+ let registro={
+  fecha:fecha.value,
+  hora:hora.value,
+  periodo:periodo.value,
+  alimento:`${alimentoTxt} (${gramos}g - ${kcal} kcal)`,
+  tipo:tipo.value
+ }
+
+ // guardar local
+ let local=getLocal()
+ local.push(registro)
+ saveLocal(local)
+
+ // guardar backend
+ await fetch("/add",{method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({...registro,user_id:userData.id})
+ })
+
+ alert("✅ Guardado completo")
+ cargar()
+}
+
+// CARGAR (LOCAL PRIMERO)
+async function cargar(){
+ let local=getLocal()
+
+ if(local.length){
+  data=local
+ }else{
+  let res=await fetch(`/data/${userData.id}`)
+  data=await res.json()
+ }
+
+ render()
+}
+
+function render(){
+
+ lista.innerHTML=""
+ let ansiedad=0
+ let kcalTotal=0
+ let counts={Hambre:0,Ansiedad:0,Otros:0}
+
+ data.forEach(d=>{
+
+  lista.innerHTML+=`<div>${d.fecha} ${d.hora} - ${d.alimento}</div>`
+
+  let kcal=d.alimento.match(/(\\d+) kcal/)
+  if(kcal) kcalTotal+=parseInt(kcal[1])
+
+  if(d.tipo==="Ansiedad") ansiedad++
+  counts[d.tipo]++
+ })
+
+ document.getElementById("kcalTotal").innerText=kcalTotal
+ document.getElementById("ansiedad").innerText=ansiedad
+
+ let pct=data.length?Math.round(ansiedad/data.length*100):0
+ document.getElementById("pct").innerText=pct+"%"
+
+ if(chart) chart.destroy()
+
+ chart=new Chart(document.getElementById("chart"),{
+  type:"bar",
+  data:{
+   labels:["Hambre","Ansiedad","Otros"],
+   datasets:[{data:[counts.Hambre,counts.Ansiedad,counts.Otros]}]
+  }
+ })
+}
+
+</script>
+
+</body>
+</html>
