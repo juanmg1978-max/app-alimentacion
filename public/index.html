@@ -2,27 +2,68 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>App Alimentación</title>
+<title>App Alimentación PRO</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body { font-family: Arial; padding: 20px; }
-input, select, button { margin: 5px; }
+body{font-family:Segoe UI;background:#eef2f7;margin:0}
+.container{max-width:1100px;margin:20px auto}
+
+.card{
+ background:white;
+ padding:20px;
+ border-radius:12px;
+ margin-bottom:20px;
+ box-shadow:0 4px 12px rgba(0,0,0,.08)
+}
+
+input,select,button{
+ padding:10px;
+ margin:5px;
+ border-radius:6px;
+ border:1px solid #ccc
+}
+
+button{background:#305496;color:white;cursor:pointer}
+
+table{width:100%;border-collapse:collapse}
+td,th{padding:10px;border-bottom:1px solid #ddd}
+th{background:#305496;color:white}
+
+.tipo-Ansiedad{background:#ff4d4d;color:white}
+.tipo-Hambre{background:#4CAF50;color:white}
+.tipo-Otros{background:#FFD966}
+
+.dashboard{display:flex;gap:20px}
+.kpi{flex:1;text-align:center;padding:20px;border-radius:10px}
+.blue{background:#305496;color:white}
+.red{background:#ff4d4d;color:white}
+.green{background:#4CAF50;color:white}
+
+.alert{padding:10px;border-radius:6px;margin-top:10px}
+.warn{background:#ffcccc}
+.good{background:#ccffcc}
 </style>
+
 </head>
 
 <body>
 
-<h2>Login</h2>
+<div class="container">
+
+<h2>App Alimentación PRO</h2>
+
+<!-- LOGIN -->
+<div class="card">
 <input id="user" placeholder="Usuario">
 <input id="pass" type="password">
 <button onclick="login()">Login</button>
 <button onclick="register()">Crear usuario</button>
+</div>
 
-<hr>
-
-<h2>Registro</h2>
+<!-- REGISTRO -->
+<div class="card">
 
 <input id="fecha" type="date">
 <input id="hora" type="time">
@@ -44,80 +85,172 @@ input, select, button { margin: 5px; }
 </select>
 
 <button onclick="guardar()">Guardar</button>
+<button onclick="exportar()">Exportar</button>
 
-<h3>Datos</h3>
-<ul id="lista"></ul>
+</div>
+
+<!-- FILTRO -->
+<div class="card">
+<input id="filtro" type="date">
+<button onclick="filtrar()">Filtrar</button>
+<button onclick="resetFiltro()">Reset</button>
+</div>
+
+<!-- TABLA -->
+<div class="card">
+<table>
+<thead>
+<tr>
+<th>Fecha</th>
+<th>Alimento</th>
+<th>Tipo</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tabla"></tbody>
+</table>
+</div>
+
+<!-- DASHBOARD -->
+<div class="card dashboard">
+<div class="kpi blue">Total<br><span id="total">0</span></div>
+<div class="kpi red">Ansiedad<br><span id="ansiedad">0</span></div>
+<div class="kpi green">%<br><span id="pct">0%</span></div>
+</div>
+
+<!-- INSIGHTS -->
+<div class="card">
+<h3>Insights</h3>
+<p id="insight"></p>
+<div id="alerta"></div>
+</div>
+
+<!-- GRAFICO -->
+<div class="card">
+<canvas id="chart"></canvas>
+</div>
+
+</div>
 
 <script>
 
-let userData = null;
+let userData=null;
+let data=[];
+let filtered=[];
+let chart;
 
 async function login(){
- let res = await fetch("/login",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-    username:user.value,
-    password:pass.value
-  })
- });
-
- if(res.ok){
-  userData = await res.json();
-  cargar();
- } else {
-  alert("Login incorrecto");
- }
+ let res=await fetch("/login",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({username:user.value,password:pass.value})})
+ if(res.ok){userData=await res.json();cargar();}
 }
 
 async function register(){
- await fetch("/register",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-    username:user.value,
-    password:pass.value
-  })
- });
-
- alert("Usuario creado");
+ await fetch("/register",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({username:user.value,password:pass.value})})
+ alert("Usuario creado")
 }
 
 async function guardar(){
-
- if(!userData){
-  alert("Primero hacer login");
-  return;
- }
-
- await fetch("/add",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-    user_id:userData.id,
-    fecha:fecha.value,
-    hora:hora.value,
-    periodo:periodo.value,
-    alimento:alimento.value,
-    tipo:tipo.value
-  })
- });
-
- cargar();
+ await fetch("/add",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({
+  user_id:userData.id,
+  fecha:fecha.value,
+  hora:hora.value,
+  periodo:periodo.value,
+  alimento:alimento.value,
+  tipo:tipo.value
+ })})
+ cargar()
 }
 
 async function cargar(){
+ let res=await fetch(`/data/${userData.id}`)
+ data=await res.json()
+ filtered=data
+ render()
+}
 
- let res = await fetch(`/data/${userData.id}`);
- let data = await res.json();
+function render(){
 
- lista.innerHTML = "";
+ let html=""
+ let ansiedad=0
+ let counts={Hambre:0,Ansiedad:0,Otros:0}
 
- data.forEach(d=>{
-  lista.innerHTML += `
-    <li>${d.fecha} ${d.hora} - ${d.alimento} (${d.tipo})</li>
-  `;
- });
+ filtered.forEach((d,i)=>{
+  if(d.tipo==="Ansiedad") ansiedad++
+  counts[d.tipo]++
+
+  html+=`
+  <tr>
+    <td>${d.fecha}</td>
+    <td>${d.alimento}</td>
+    <td class="tipo-${d.tipo}">${d.tipo}</td>
+    <td>
+      <button onclick="del(${i})">X</button>
+    </td>
+  </tr>`
+ })
+
+ tabla.innerHTML=html
+
+ total.innerText=filtered.length
+ document.getElementById("ansiedad").innerText=ansiedad
+ let pct=filtered.length?Math.round(ansiedad/filtered.length*100):0
+ document.getElementById("pct").innerText=pct+"%"
+
+ let insight=pct>50?"Alta emocional":pct>30?"Moderada":"Normal"
+ insight+=pct>50?" → regular horarios":" → bien"
+
+ document.getElementById("insight").innerText=insight
+
+ if(pct>60){
+  alerta.innerText="⚠️ Riesgo alto"
+  alerta.className="alert warn"
+ }else{
+  alerta.innerText="✅ Controlado"
+  alerta.className="alert good"
+ }
+
+ if(chart) chart.destroy()
+
+ chart=new Chart(document.getElementById("chart"),{
+  type:"bar",
+  data:{
+   labels:["Hambre","Ansiedad","Otros"],
+   datasets:[{data:[counts.Hambre,counts.Ansiedad,counts.Otros]}]
+  }
+ })
+}
+
+function del(i){
+ data.splice(i,1)
+ filtered=data
+ render()
+}
+
+function filtrar(){
+ let f=filtro.value
+ filtered=data.filter(d=>d.fecha==f)
+ render()
+}
+
+function resetFiltro(){
+ filtered=data
+ render()
+}
+
+function exportar(){
+ let csv="Fecha,Alimento,Tipo\n"
+ filtered.forEach(d=>csv+=`${d.fecha},${d.alimento},${d.tipo}\n`)
+ let blob=new Blob([csv])
+ let a=document.createElement("a")
+ a.href=URL.createObjectURL(blob)
+ a.download="data.csv"
+ a.click()
 }
 
 </script>
