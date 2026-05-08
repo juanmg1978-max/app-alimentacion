@@ -3,19 +3,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nutricionista IA PRO MAX</title>
+<title>Nutricionista PRO</title>
 
-<!-- ✅ SCRIPTS CORRECTOS -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/t<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
-body{font-family:Segoe UI;background:#eef2f7;margin:0}
-.container{max-width:600px;margin:auto;padding:10px}
-.card{background:white;padding:15px;margin-bottom:10px;border-radius:10px}
+body{
+ font-family:Segoe UI;
+ background:#eef2f7;
+ margin:0;
+}
 
-video{width:100%;border-radius:10px}
-button{width:100%;padding:10px;margin-top:5px}
+.container{
+ max-width:500px;
+ margin:auto;
+ padding:10px;
+}
+
+.card{
+ background:white;
+ padding:15px;
+ border-radius:12px;
+ box-shadow:0 4px 12px rgba(0,0,0,.1);
+ margin-bottom:15px;
+}
+
+button{
+ width:100%;
+ padding:12px;
+ border:none;
+ border-radius:8px;
+ background:#305496;
+ color:white;
+ font-size:16px;
+ margin-top:5px;
+}
+
+input,select{
+ width:100%;
+ padding:10px;
+ margin-top:5px;
+ border-radius:8px;
+ border:1px solid #ccc;
+}
 
 .topbar{
  background:#305496;
@@ -23,7 +54,14 @@ button{width:100%;padding:10px;margin-top:5px}
  padding:10px;
  display:flex;
  justify-content:space-between;
- border-radius:8px;
+ border-radius:10px;
+ margin-bottom:10px;
+}
+
+video{
+ width:100%;
+ border-radius:10px;
+ margin-top:10px;
 }
 </style>
 </head>
@@ -37,7 +75,7 @@ button{width:100%;padding:10px;margin-top:5px}
 <button onclick="logout()">Salir</button>
 </div>
 
-<h2>🥗 Nutricionista IA PRO MAX</h2>
+<h2>🥗 Nutricionista PRO</h2>
 
 <!-- LOGIN -->
 <div id="loginCard" class="card">
@@ -49,18 +87,22 @@ button{width:100%;padding:10px;margin-top:5px}
 
 <!-- APP -->
 <div id="app" style="display:none;">
+
 <div class="card">
 <button onclick="startCamera()">📷 Activar cámara</button>
-<video id="video" autoplay muted></video>
+<button onclick="switchCamera()">🔄 Cambiar cámara</button>
+<video id="video" autoplay playsinline></video>
 </div>
 
 <div class="card">
 <input id="resultado" placeholder="Resultado IA">
+
 <select id="tipo">
 <option>Hambre</option>
 <option>Ansiedad</option>
 <option>Otros</option>
 </select>
+
 <select id="periodo">
 <option>Desayuno</option>
 <option>Almuerzo</option>
@@ -68,12 +110,15 @@ button{width:100%;padding:10px;margin-top:5px}
 <option>Merienda</option>
 <option>Colación</option>
 </select>
+
 <button onclick="guardar()">Guardar</button>
 </div>
 
 <div class="card">
+<h3>Historial</h3>
 <div id="lista"></div>
 </div>
+
 </div>
 
 </div>
@@ -82,22 +127,23 @@ button{width:100%;padding:10px;margin-top:5px}
 
 let userData=null;
 let model;
+let stream;
+let usandoFrontal=false;
 
-// LOGIN
+/* LOGIN */
 async function login(){
 
- let res = await fetch("/login",{
+ let res=await fetch("/login",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({
-    username:user.value,
-    password:pass.value
+   username:user.value,
+   password:pass.value
   })
  });
 
  if(res.ok){
-  userData = await res.json();
-
+  userData=await res.json();
   usuario.innerText="👤 "+userData.username;
 
   loginCard.style.display="none";
@@ -110,59 +156,111 @@ async function login(){
  }
 }
 
-// REGISTER
+/* REGISTER */
 async function register(){
  await fetch("/register",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({
-    username:user.value,
-    password:pass.value
+   username:user.value,
+   password:pass.value
   })
  });
 
  alert("Usuario creado");
 }
 
-function logout(){
- location.reload();
-}
+function logout(){ location.reload(); }
 
-// IA
+/* IA */
 mobilenet.load().then(m => model=m);
 
-// CÁMARA
+/* CAMARA TRASERA */
 async function startCamera(){
- let stream=await navigator.mediaDevices.getUserMedia({video:true});
+
+ if(stream) detener();
+
+ stream = await navigator.mediaDevices.getUserMedia({
+  video:{
+   facingMode: usandoFrontal ? "user" : "environment"
+  }
+ });
+
  video.srcObject=stream;
+
+ detectarAuto();
 }
 
-// GUARDAR
+/* CAMBIAR CAMARA */
+function switchCamera(){
+ usandoFrontal = !usandoFrontal;
+ startCamera();
+}
+
+/* DETENER */
+function detener(){
+ stream.getTracks().forEach(t=>t.stop());
+}
+
+/* IA AUTOMATICA */
+function detectarAuto(){
+
+ setInterval(async ()=>{
+
+  if(!model || !video.videoWidth) return;
+
+  let pred = await model.classify(video);
+
+  let alimentos=[];
+
+  pred.forEach(p=>{
+   let n=p.className.toLowerCase();
+
+   if(n.includes("pizza")) alimentos.push("pizza");
+   if(n.includes("burger")) alimentos.push("hamburguesa");
+   if(n.includes("salad")) alimentos.push("ensalada");
+   if(n.includes("banana")) alimentos.push("banana");
+   if(n.includes("chicken")) alimentos.push("pollo");
+  });
+
+  if(alimentos.length){
+    resultado.value=alimentos.join("+");
+  }
+
+ },2000);
+}
+
+/* GUARDAR */
 async function guardar(){
+
  await fetch("/add",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({
-    user_id:userData.id,
-    fecha:new Date().toLocaleDateString(),
-    alimento:resultado.value,
-    tipo:tipo.value,
-    periodo:periodo.value
+   user_id:userData.id,
+   fecha:new Date().toLocaleDateString(),
+   alimento:resultado.value,
+   tipo:tipo.value,
+   periodo:periodo.value
   })
  });
 
  cargar();
 }
 
-// CARGAR
+/* CARGAR */
 async function cargar(){
 
  let res=await fetch(`/data/${userData.id}`);
  let data=await res.json();
 
  lista.innerHTML="";
+
  data.forEach(d=>{
-  lista.innerHTML+=`<div>${d.fecha} - ${d.alimento}</div>`;
+  lista.innerHTML+=`
+  <div style="background:#f5f5f5;padding:8px;margin:5px;border-radius:8px">
+   ${d.fecha} - ${d.alimento}
+  </div>`;
  });
 }
 
@@ -170,3 +268,4 @@ async function cargar(){
 
 </body>
 </html>
+``
