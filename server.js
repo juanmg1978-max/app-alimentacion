@@ -1,6 +1,7 @@
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 app.use(express.json());
@@ -27,6 +28,10 @@ db.serialize(() => {
 });
 
 app.use(express.static("public"));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
@@ -70,6 +75,9 @@ app.get("/data/:id", (req, res) => {
     [req.params.id],
     (err, rows) => res.json(rows)
   );
+});
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/public/index.html");
 });
 
 app.listen(3000);
