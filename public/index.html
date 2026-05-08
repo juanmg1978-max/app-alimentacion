@@ -3,23 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nutricionista PRO MAX</title>
+<title>Nutricionista IA PRO MAX FINAL</title>
 
-https://cdn.jsdelivr.net/npm/@tensorflow/tfjs
-https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body{font-family:Segoe UI;background:#eef2f7;margin:0}
 .container{max-width:600px;margin:auto;padding:10px}
 .card{background:white;padding:15px;margin-bottom:10px;border-radius:10px}
 
-.kpi{padding:10px;color:white;border-radius:8px;text-align:center;margin:5px 0}
-.blue{background:#305496}
-green{background:#4CAF50}
-orange{background:#FFA500}
-red{background:#ff4d4d}
+video{width:100%;border-radius:10px}
 
 button{width:100%;padding:10px;margin-top:5px}
+
+.kpi{padding:10px;border-radius:8px;color:white;text-align:center;margin:5px 0}
+.blue{background:#305496}
+.green{background:#4CAF50}
+.orange{background:#FFA500}
+.red{background:#ff4d4d}
 </style>
 </head>
 
@@ -27,57 +30,46 @@ button{width:100%;padding:10px;margin-top:5px}
 
 <div class="container">
 
-<h2>🥗 Sistema Nutricionista IA MAX</h2>
+<h2>🥗 Nutricionista IA PRO MAX</h2>
 
 <div class="card">
-<input id="objetivo" type="number" placeholder="Objetivo kcal diario (ej 2000)">
+<button onclick="startCamera()">📷 Activar cámara</button>
+<video id="video" autoplay></video>
+<button onclick="detectar()">🧠 Analizar comida</button>
+</div>
+
+<div class="card">
+<input id="resultado" placeholder="Resultado IA">
+
+<select id="tipo">
+<option>Hambre</option>
+<option>Ansiedad</option>
+<option>Otros</option>
+</select>
+
+<select id="periodo">
+<option>Desayuno</option>
+<option>Almuerzo</option>
+<option>Cena</option>
+<option>Merienda</option>
+<option>Colación</option>
+</select>
+
+<button onclick="guardar()">Guardar registro</button>
+</div>
+
+<div class="card">
+<input id="objetivo" type="number" placeholder="Kcal objetivo diario (ej 2000)">
 <button onclick="setObjetivo()">Guardar objetivo</button>
 </div>
 
 <div class="card">
 <textarea id="disponibles" placeholder="Alimentos disponibles"></textarea>
-<button onclick="generarPlan()">📅 Generar plan semanal</button>
+<button onclick="generarPlan()">🍳 Generar plan semanal</button>
 <div id="plan"></div>
 </div>
 
 <div class="card">
-<div id="control"></div>
-</div>
-
-</div>
-
-<script>
-
-// datos usuario
-let data=JSON.parse(localStorage.getItem("data")||"[]")
-let objetivo=parseInt(localStorage.getItem("objetivo")||2000)
-
-// recetas base
-const RECETAS={
- desayuno:["🍳 Huevos + pan","🥣 Yogur + fruta","🍞 Tostadas"],
- almuerzo:["🍗 Pollo + arroz","🥗 Ensalada completa","🍝 Pasta"],
- cena:["🥗 Ensalada ligera","🍗 Pollo","🥚 Omelette"],
- merienda:["🍌 Banana","🥛 Yogur","🍞 Tostada"],
- colacion:["🥜 Frutos secos","🍎 Fruta"]
-}
-
-// guardar objetivo
-function setObjetivo(){
- objetivo=parseInt(document.getElementById("objetivo").value)
- localStorage.setItem("objetivo",objetivo)
- alert("Objetivo guardado")
-}
-
-// generar plan
-function generarPlan(){
-
- let ing=document.getElementById("disponibles").value.toLowerCase()
-
- let dias=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
-
- let html=""
-
- dias.forEach(d=>{
-
-  html+=`<b>${d}</b><br>`
-
+<div class="kpi blue">Kcal Día <span id="kcal">0</span></div>
+<div class="kpi green">Objetivo <span id="obj">0</span></div>
+<div class="kpi orange">Balance <span id="balance">0</span></div>
