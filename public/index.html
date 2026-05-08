@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nutricionista PRO</title>
+<title>Nutricionista PRO IA</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -13,9 +13,8 @@ body{font-family:Segoe UI;background:#eef2f7;margin:0}
 
 .card{background:white;padding:15px;border-radius:12px;margin-bottom:15px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
 
-input,select,button{width:100%;padding:12px;margin:5px 0;border-radius:8px;border:1px solid #ccc;font-size:16px}
-
-button{background:#305496;color:white;border:none}
+input,select,button{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:1px solid #ccc}
+button{background:#305496;color:white}
 
 .topbar{background:#305496;color:white;padding:10px;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between}
 
@@ -24,6 +23,7 @@ button{background:#305496;color:white;border:none}
 .red{background:#ff4d4d}
 .green{background:#4CAF50}
 
+video{width:100%;border-radius:10px}
 </style>
 </head>
 
@@ -48,7 +48,6 @@ button{background:#305496;color:white;border:none}
 <div id="app" style="display:none;">
 
 <div class="card">
-
 <input id="fecha" type="date">
 <input id="hora" type="time">
 
@@ -62,7 +61,8 @@ button{background:#305496;color:white;border:none}
 
 <input id="alimento" placeholder="Alimento">
 
-<input type="file" id="foto" accept="image/*">
+<button onclick="startCamera()">Abrir cámara</button>
+<video id="video" autoplay></video>
 
 <select id="tipo">
 <option>Hambre</option>
@@ -71,11 +71,10 @@ button{background:#305496;color:white;border:none}
 </select>
 
 <button onclick="guardar()">Guardar</button>
-
 </div>
 
 <div class="card">
-<div class="kpi blue">Total kcal <span id="kcalTotal">0</span></div>
+<div class="kpi blue">Kcal Total <span id="kcalTotal">0</span></div>
 <div class="kpi red">Ansiedad <span id="ansiedad">0</span></div>
 <div class="kpi green">% <span id="pct">0%</span></div>
 </div>
@@ -96,33 +95,52 @@ button{background:#305496;color:white;border:none}
 
 let userData=null
 let data=[]
+let editIndex=null
 let chart
+let stream=null
 
-// 💾 STORAGE LOCAL
-function getLocal(){
- return JSON.parse(localStorage.getItem("datos") || "[]")
+// LOCAL STORAGE
+function getLocal(){return JSON.parse(localStorage.getItem("datos")||"[]")}
+function saveLocal(arr){localStorage.setItem("datos",JSON.stringify(arr))}
+
+// IA IMAGEN (MEJORADA)
+function analizarImagen(){
+
+ let videoEl=document.getElementById("video")
+
+ if(!stream) return null
+
+ let w=videoEl.videoWidth
+ let h=videoEl.videoHeight
+
+ let ratio=w/h
+
+ if(ratio>1.4) return "pizza"
+ if(ratio>1.2) return "hamburguesa"
+ if(ratio<0.9) return "ensalada"
+
+ return "plato mixto"
 }
 
-function saveLocal(arr){
- localStorage.setItem("datos", JSON.stringify(arr))
-}
+// CALORÍAS DINÁMICAS
+function calcularKcal(alimento){
 
-// IA DETECCIÓN SIMPLE
-function detectar(file){
- if(!file) return "comida"
- let n=file.name.toLowerCase()
- if(n.includes("pizza")) return "pizza"
- if(n.includes("pollo")) return "pollo"
- if(n.includes("ensalada")) return "ensalada"
- return "comida"
-}
+ if(alimento.includes("pizza")) return 300
+ if(alimento.includes("hamburguesa")) return 320
+ if(alimento.includes("ensalada")) return 120
+ if(alimento.includes("pollo")) return 220
 
-// CALORÍAS
-function kcalBase(a){
- if(a.includes("pizza")) return 280
- if(a.includes("pollo")) return 220
- if(a.includes("ensalada")) return 120
  return 180
+}
+
+// PORCIÓN REAL SEGÚN VIDEO
+function calcularPorcion(){
+
+ if(!stream) return 100
+
+ let size=video.videoWidth*video.videoHeight
+
+ return Math.round(size/5000)
 }
 
 // LOGIN
@@ -137,7 +155,6 @@ async function login(){
   loginCard.style.display="none"
   app.style.display="block"
   topbar.style.display="flex"
-
   cargar()
  }
 }
@@ -146,7 +163,6 @@ async function register(){
  await fetch("/register",{method:"POST",
  headers:{'Content-Type':'application/json'},
  body:JSON.stringify({username:user.value,password:pass.value})})
-
  alert("Usuario creado")
 }
 
@@ -157,54 +173,73 @@ function logout(){
  topbar.style.display="none"
 }
 
-// GUARDAR (LOCAL + BACKEND)
-async function guardar(){
+// CÁMARA
+async function startCamera(){
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({video:true})
+  video.srcObject=stream
+ }catch(e){alert("Cámara no disponible")}
+}
 
- if(!userData){alert("Login primero");return}
+// GUARDAR
+function guardar(){
 
- let file=foto.files[0]
- let alimentoTxt=alimento.value || detectar(file)
+ if(!userData){alert("Login");return}
 
- let gramos=file ? Math.round(file.size/8000) : 100
- let kcal=Math.round((kcalBase(alimentoTxt)*gramos)/100)
+ let alimentoTxt=alimento.value || analizarImagen()
+
+ let gramos=calcularPorcion()
+ let kcal=calcularKcal(alimentoTxt)
+ let kcalFinal=Math.round((kcal*gramos)/100)
 
  let registro={
   fecha:fecha.value,
   hora:hora.value,
   periodo:periodo.value,
-  alimento:`${alimentoTxt} (${gramos}g - ${kcal} kcal)`,
+  alimento:`${alimentoTxt} (${gramos}g - ${kcalFinal} kcal)`,
   tipo:tipo.value
  }
 
- // guardar local
  let local=getLocal()
- local.push(registro)
+
+ if(editIndex!=null){
+  local[editIndex]=registro
+  editIndex=null
+ }else{
+  local.push(registro)
+ }
+
  saveLocal(local)
 
- // guardar backend
- await fetch("/add",{method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({...registro,user_id:userData.id})
- })
-
- alert("✅ Guardado completo")
  cargar()
 }
 
-// CARGAR (LOCAL PRIMERO)
-async function cargar(){
+// EDITAR
+function editar(i){
+ let r=data[i]
+ fecha.value=r.fecha
+ hora.value=r.hora
+ periodo.value=r.periodo
+ alimento.value=r.alimento
+ tipo.value=r.tipo
+ editIndex=i
+}
+
+// BORRAR
+function borrar(i){
  let local=getLocal()
+ local.splice(i,1)
+ saveLocal(local)
+ cargar()
+}
 
- if(local.length){
-  data=local
- }else{
-  let res=await fetch(`/data/${userData.id}`)
-  data=await res.json()
- }
-
+// CARGAR
+function cargar(){
+ data=getLocal()
  render()
 }
 
+// RENDER
 function render(){
 
  lista.innerHTML=""
@@ -212,9 +247,14 @@ function render(){
  let kcalTotal=0
  let counts={Hambre:0,Ansiedad:0,Otros:0}
 
- data.forEach(d=>{
+ data.forEach((d,i)=>{
 
-  lista.innerHTML+=`<div>${d.fecha} ${d.hora} - ${d.alimento}</div>`
+  lista.innerHTML+=`
+  <div>
+   ${d.fecha} ${d.hora} - ${d.alimento}
+   <button onclick="editar(${i})">✏️</button>
+   <button onclick="borrar(${i})">🗑️</button>
+  </div>`
 
   let kcal=d.alimento.match(/(\\d+) kcal/)
   if(kcal) kcalTotal+=parseInt(kcal[1])
@@ -223,8 +263,11 @@ function render(){
   counts[d.tipo]++
  })
 
- document.getElementById("kcalTotal").innerText=kcalTotal
- document.getElementById("ansiedad").innerText=ansiedad
+ kcalTotalEl = document.getElementById("kcalTotal")
+ kcalTotalEl.innerText=kcalTotal
+
+ ansEl=document.getElementById("ansiedad")
+ ansEl.innerText=ansiedad
 
  let pct=data.length?Math.round(ansiedad/data.length*100):0
  document.getElementById("pct").innerText=pct+"%"
