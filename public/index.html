@@ -102,6 +102,8 @@ th{background:#305496;color:white}
 <thead>
 <tr>
 <th>Fecha</th>
+<th>Hora</th>
+<th>Periodo</th>
 <th>Alimento</th>
 <th>Tipo</th>
 <th>Acciones</th>
@@ -143,7 +145,8 @@ async function login(){
  let res=await fetch("/login",{method:"POST",
  headers:{'Content-Type':'application/json'},
  body:JSON.stringify({username:user.value,password:pass.value})})
- if(res.ok){userData=await res.json();cargar();}
+ if(res.ok){userData=await res.json();alert("Login OK");cargar();}
+ else{alert("Error login")}
 }
 
 async function register(){
@@ -154,6 +157,8 @@ async function register(){
 }
 
 async function guardar(){
+ if(!userData){alert("Primero login");return;}
+
  await fetch("/add",{method:"POST",
  headers:{'Content-Type':'application/json'},
  body:JSON.stringify({
@@ -164,6 +169,8 @@ async function guardar(){
   alimento:alimento.value,
   tipo:tipo.value
  })})
+
+ alert("Guardado ✅")
  cargar()
 }
 
@@ -180,18 +187,26 @@ function render(){
  let ansiedad=0
  let counts={Hambre:0,Ansiedad:0,Otros:0}
 
+ let horarioAnsiedad={}
+
  filtered.forEach((d,i)=>{
-  if(d.tipo==="Ansiedad") ansiedad++
+
+  if(d.tipo==="Ansiedad"){
+    ansiedad++
+    let h=d.hora || "?"
+    horarioAnsiedad[h]=(horarioAnsiedad[h]||0)+1
+  }
+
   counts[d.tipo]++
 
   html+=`
   <tr>
     <td>${d.fecha}</td>
+    <td>${d.hora||""}</td>
+    <td>${d.periodo||""}</td>
     <td>${d.alimento}</td>
     <td class="tipo-${d.tipo}">${d.tipo}</td>
-    <td>
-      <button onclick="del(${i})">X</button>
-    </td>
+    <td><button onclick="del(${i})">X</button></td>
   </tr>`
  })
 
@@ -203,14 +218,26 @@ function render(){
  document.getElementById("pct").innerText=pct+"%"
 
  let insight=pct>50?"Alta emocional":pct>30?"Moderada":"Normal"
- insight+=pct>50?" → regular horarios":" → bien"
+
+ let pico=Object.entries(horarioAnsiedad).sort((a,b)=>b[1]-a[1])[0]
+
+ if(pico){
+   insight+=` | Pico: ${pico[0]}hs`
+ }
+
+ insight+=pct>50?" → Regular horarios":" → Bien"
 
  document.getElementById("insight").innerText=insight
 
- if(pct>60){
-  alerta.innerText="⚠️ Riesgo alto"
+ if(pct>70){
+  alerta.innerText="🚨 Riesgo alto"
   alerta.className="alert warn"
- }else{
+ }
+ else if(pct>50){
+  alerta.innerText="⚠️ Atención"
+  alerta.className="alert warn"
+ }
+ else{
   alerta.innerText="✅ Controlado"
   alerta.className="alert good"
  }
@@ -233,8 +260,7 @@ function del(i){
 }
 
 function filtrar(){
- let f=filtro.value
- filtered=data.filter(d=>d.fecha==f)
+ filtered=data.filter(d=>d.fecha==filtro.value)
  render()
 }
 
@@ -244,12 +270,12 @@ function resetFiltro(){
 }
 
 function exportar(){
- let csv="Fecha,Alimento,Tipo\n"
- filtered.forEach(d=>csv+=`${d.fecha},${d.alimento},${d.tipo}\n`)
+ let csv="Fecha,Hora,Periodo,Alimento,Tipo\n"
+ filtered.forEach(d=>csv+=`${d.fecha},${d.hora},${d.periodo},${d.alimento},${d.tipo}\n`)
  let blob=new Blob([csv])
  let a=document.createElement("a")
  a.href=URL.createObjectURL(blob)
- a.download="data.csv"
+ a.download="datos.csv"
  a.click()
 }
 
