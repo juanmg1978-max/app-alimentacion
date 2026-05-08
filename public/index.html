@@ -3,27 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nutricionista PRO IA</title>
+<title>Nutricionista PRO MAX</title>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+https://cdn.jsdelivr.net/npm/@tensorflow/tfjs
+https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet
 
 <style>
 body{font-family:Segoe UI;background:#eef2f7;margin:0}
-.container{max-width:500px;margin:auto;padding:10px}
+.container{max-width:600px;margin:auto;padding:10px}
+.card{background:white;padding:15px;margin-bottom:10px;border-radius:10px}
 
-.card{background:white;padding:15px;border-radius:12px;margin-bottom:15px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
-
-input,select,button{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:1px solid #ccc}
-button{background:#305496;color:white}
-
-.topbar{background:#305496;color:white;padding:10px;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between}
-
-.kpi{padding:10px;color:white;border-radius:8px;margin:5px 0;text-align:center}
+.kpi{padding:10px;color:white;border-radius:8px;text-align:center;margin:5px 0}
 .blue{background:#305496}
-.red{background:#ff4d4d}
-.green{background:#4CAF50}
+green{background:#4CAF50}
+orange{background:#FFA500}
+red{background:#ff4d4d}
 
-video{width:100%;border-radius:10px}
+button{width:100%;padding:10px;margin-top:5px}
 </style>
 </head>
 
@@ -31,259 +27,57 @@ video{width:100%;border-radius:10px}
 
 <div class="container">
 
-<div id="topbar" class="topbar" style="display:none;">
-<span id="usuario"></span>
-<button onclick="logout()">Salir</button>
-</div>
-
-<h2>🥗 Nutricionista IA PRO</h2>
-
-<div id="loginCard" class="card">
-<input id="user" placeholder="Usuario">
-<input id="pass" type="password">
-<button onclick="login()">Login</button>
-<button onclick="register()">Crear usuario</button>
-</div>
-
-<div id="app" style="display:none;">
+<h2>🥗 Sistema Nutricionista IA MAX</h2>
 
 <div class="card">
-<input id="fecha" type="date">
-<input id="hora" type="time">
-
-<select id="periodo">
-<option>Desayuno</option>
-<option>Almuerzo</option>
-<option>Merienda</option>
-<option>Colación</option>
-<option>Cena</option>
-</select>
-
-<input id="alimento" placeholder="Alimento">
-
-<button onclick="startCamera()">Abrir cámara</button>
-<video id="video" autoplay></video>
-
-<select id="tipo">
-<option>Hambre</option>
-<option>Ansiedad</option>
-<option>Otros</option>
-</select>
-
-<button onclick="guardar()">Guardar</button>
+<input id="objetivo" type="number" placeholder="Objetivo kcal diario (ej 2000)">
+<button onclick="setObjetivo()">Guardar objetivo</button>
 </div>
 
 <div class="card">
-<div class="kpi blue">Kcal Total <span id="kcalTotal">0</span></div>
-<div class="kpi red">Ansiedad <span id="ansiedad">0</span></div>
-<div class="kpi green">% <span id="pct">0%</span></div>
+<textarea id="disponibles" placeholder="Alimentos disponibles"></textarea>
+<button onclick="generarPlan()">📅 Generar plan semanal</button>
+<div id="plan"></div>
 </div>
 
 <div class="card">
-<div id="lista"></div>
-</div>
-
-<div class="card">
-<canvas id="chart"></canvas>
-</div>
-
+<div id="control"></div>
 </div>
 
 </div>
 
 <script>
 
-let userData=null
-let data=[]
-let editIndex=null
-let chart
-let stream=null
+// datos usuario
+let data=JSON.parse(localStorage.getItem("data")||"[]")
+let objetivo=parseInt(localStorage.getItem("objetivo")||2000)
 
-// LOCAL STORAGE
-function getLocal(){return JSON.parse(localStorage.getItem("datos")||"[]")}
-function saveLocal(arr){localStorage.setItem("datos",JSON.stringify(arr))}
-
-// IA IMAGEN (MEJORADA)
-function analizarImagen(){
-
- let videoEl=document.getElementById("video")
-
- if(!stream) return null
-
- let w=videoEl.videoWidth
- let h=videoEl.videoHeight
-
- let ratio=w/h
-
- if(ratio>1.4) return "pizza"
- if(ratio>1.2) return "hamburguesa"
- if(ratio<0.9) return "ensalada"
-
- return "plato mixto"
+// recetas base
+const RECETAS={
+ desayuno:["🍳 Huevos + pan","🥣 Yogur + fruta","🍞 Tostadas"],
+ almuerzo:["🍗 Pollo + arroz","🥗 Ensalada completa","🍝 Pasta"],
+ cena:["🥗 Ensalada ligera","🍗 Pollo","🥚 Omelette"],
+ merienda:["🍌 Banana","🥛 Yogur","🍞 Tostada"],
+ colacion:["🥜 Frutos secos","🍎 Fruta"]
 }
 
-// CALORÍAS DINÁMICAS
-function calcularKcal(alimento){
-
- if(alimento.includes("pizza")) return 300
- if(alimento.includes("hamburguesa")) return 320
- if(alimento.includes("ensalada")) return 120
- if(alimento.includes("pollo")) return 220
-
- return 180
+// guardar objetivo
+function setObjetivo(){
+ objetivo=parseInt(document.getElementById("objetivo").value)
+ localStorage.setItem("objetivo",objetivo)
+ alert("Objetivo guardado")
 }
 
-// PORCIÓN REAL SEGÚN VIDEO
-function calcularPorcion(){
+// generar plan
+function generarPlan(){
 
- if(!stream) return 100
+ let ing=document.getElementById("disponibles").value.toLowerCase()
 
- let size=video.videoWidth*video.videoHeight
+ let dias=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
 
- return Math.round(size/5000)
-}
+ let html=""
 
-// LOGIN
-async function login(){
- let res=await fetch("/login",{method:"POST",
- headers:{'Content-Type':'application/json'},
- body:JSON.stringify({username:user.value,password:pass.value})})
+ dias.forEach(d=>{
 
- if(res.ok){
-  userData=await res.json()
-  usuario.innerText="👤 "+userData.username
-  loginCard.style.display="none"
-  app.style.display="block"
-  topbar.style.display="flex"
-  cargar()
- }
-}
+  html+=`<b>${d}</b><br>`
 
-async function register(){
- await fetch("/register",{method:"POST",
- headers:{'Content-Type':'application/json'},
- body:JSON.stringify({username:user.value,password:pass.value})})
- alert("Usuario creado")
-}
-
-function logout(){
- userData=null
- app.style.display="none"
- loginCard.style.display="block"
- topbar.style.display="none"
-}
-
-// CÁMARA
-async function startCamera(){
- try{
-  stream=await navigator.mediaDevices.getUserMedia({video:true})
-  video.srcObject=stream
- }catch(e){alert("Cámara no disponible")}
-}
-
-// GUARDAR
-function guardar(){
-
- if(!userData){alert("Login");return}
-
- let alimentoTxt=alimento.value || analizarImagen()
-
- let gramos=calcularPorcion()
- let kcal=calcularKcal(alimentoTxt)
- let kcalFinal=Math.round((kcal*gramos)/100)
-
- let registro={
-  fecha:fecha.value,
-  hora:hora.value,
-  periodo:periodo.value,
-  alimento:`${alimentoTxt} (${gramos}g - ${kcalFinal} kcal)`,
-  tipo:tipo.value
- }
-
- let local=getLocal()
-
- if(editIndex!=null){
-  local[editIndex]=registro
-  editIndex=null
- }else{
-  local.push(registro)
- }
-
- saveLocal(local)
-
- cargar()
-}
-
-// EDITAR
-function editar(i){
- let r=data[i]
- fecha.value=r.fecha
- hora.value=r.hora
- periodo.value=r.periodo
- alimento.value=r.alimento
- tipo.value=r.tipo
- editIndex=i
-}
-
-// BORRAR
-function borrar(i){
- let local=getLocal()
- local.splice(i,1)
- saveLocal(local)
- cargar()
-}
-
-// CARGAR
-function cargar(){
- data=getLocal()
- render()
-}
-
-// RENDER
-function render(){
-
- lista.innerHTML=""
- let ansiedad=0
- let kcalTotal=0
- let counts={Hambre:0,Ansiedad:0,Otros:0}
-
- data.forEach((d,i)=>{
-
-  lista.innerHTML+=`
-  <div>
-   ${d.fecha} ${d.hora} - ${d.alimento}
-   <button onclick="editar(${i})">✏️</button>
-   <button onclick="borrar(${i})">🗑️</button>
-  </div>`
-
-  let kcal=d.alimento.match(/(\\d+) kcal/)
-  if(kcal) kcalTotal+=parseInt(kcal[1])
-
-  if(d.tipo==="Ansiedad") ansiedad++
-  counts[d.tipo]++
- })
-
- kcalTotalEl = document.getElementById("kcalTotal")
- kcalTotalEl.innerText=kcalTotal
-
- ansEl=document.getElementById("ansiedad")
- ansEl.innerText=ansiedad
-
- let pct=data.length?Math.round(ansiedad/data.length*100):0
- document.getElementById("pct").innerText=pct+"%"
-
- if(chart) chart.destroy()
-
- chart=new Chart(document.getElementById("chart"),{
-  type:"bar",
-  data:{
-   labels:["Hambre","Ansiedad","Otros"],
-   datasets:[{data:[counts.Hambre,counts.Ansiedad,counts.Otros]}]
-  }
- })
-}
-
-</script>
-
-</body>
-</html>
