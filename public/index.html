@@ -5,9 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nutricionista IA PRO MAX</title>
 
-<!-- ✅ SCRIPTS BIEN ESCRITOS -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+<!-- ✅ SCRIPTS CORRECTOS -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/t<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -16,22 +15,15 @@ body{font-family:Segoe UI;background:#eef2f7;margin:0}
 .card{background:white;padding:15px;margin-bottom:10px;border-radius:10px}
 
 video{width:100%;border-radius:10px}
-
 button{width:100%;padding:10px;margin-top:5px}
-
-.kpi{padding:10px;border-radius:8px;color:white;text-align:center;margin:5px 0}
-.blue{background:#305496}
-.green{background:#4CAF50}
-.orange{background:#FFA500}
-.red{background:#ff4d4d}
 
 .topbar{
  background:#305496;
  color:white;
  padding:10px;
- border-radius:8px;
  display:flex;
- justify-content:space-between
+ justify-content:space-between;
+ border-radius:8px;
 }
 </style>
 </head>
@@ -40,7 +32,6 @@ button{width:100%;padding:10px;margin-top:5px}
 
 <div class="container">
 
-<!-- 🔐 TOPBAR -->
 <div id="topbar" class="topbar" style="display:none;">
 <span id="usuario"></span>
 <button onclick="logout()">Salir</button>
@@ -58,7 +49,6 @@ button{width:100%;padding:10px;margin-top:5px}
 
 <!-- APP -->
 <div id="app" style="display:none;">
-
 <div class="card">
 <button onclick="startCamera()">📷 Activar cámara</button>
 <video id="video" autoplay muted></video>
@@ -66,13 +56,11 @@ button{width:100%;padding:10px;margin-top:5px}
 
 <div class="card">
 <input id="resultado" placeholder="Resultado IA">
-
 <select id="tipo">
 <option>Hambre</option>
 <option>Ansiedad</option>
 <option>Otros</option>
 </select>
-
 <select id="periodo">
 <option>Desayuno</option>
 <option>Almuerzo</option>
@@ -80,22 +68,12 @@ button{width:100%;padding:10px;margin-top:5px}
 <option>Merienda</option>
 <option>Colación</option>
 </select>
-
-<button onclick="guardar()">Guardar registro</button>
-</div>
-
-<div class="card">
-<div class="kpi blue">Ansiedad % <span id="ansiedad">0%</span></div>
-</div>
-
-<div class="card">
-<canvas id="chart"></canvas>
+<button onclick="guardar()">Guardar</button>
 </div>
 
 <div class="card">
 <div id="lista"></div>
 </div>
-
 </div>
 
 </div>
@@ -104,24 +82,21 @@ button{width:100%;padding:10px;margin-top:5px}
 
 let userData=null;
 let model;
-let stream;
-let intervaloIA;
-let chart;
 
-/* LOGIN */
+// LOGIN
 async function login(){
 
- let res=await fetch("/login",{
+ let res = await fetch("/login",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({
     username:user.value,
     password:pass.value
   })
- })
+ });
 
  if(res.ok){
-  userData=await res.json();
+  userData = await res.json();
 
   usuario.innerText="👤 "+userData.username;
 
@@ -135,9 +110,8 @@ async function login(){
  }
 }
 
-/* REGISTER */
+// REGISTER
 async function register(){
-
  await fetch("/register",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
@@ -150,94 +124,49 @@ async function register(){
  alert("Usuario creado");
 }
 
-/* LOGOUT */
 function logout(){
  location.reload();
 }
 
-/* IA */
-async function init(){
- model=await mobilenet.load();
-}
-init();
+// IA
+mobilenet.load().then(m => model=m);
 
-/* CAMARA + IA AUTO */
+// CÁMARA
 async function startCamera(){
-
- stream=await navigator.mediaDevices.getUserMedia({video:true});
+ let stream=await navigator.mediaDevices.getUserMedia({video:true});
  video.srcObject=stream;
-
- intervaloIA=setInterval(async ()=>{
-
-  if(!model) return;
-
-  let pred=await model.classify(video);
-
-  let alimentos=[];
-
-  pred.forEach(p=>{
-   let n=p.className.toLowerCase();
-
-   if(n.includes("pizza")) alimentos.push("pizza");
-   if(n.includes("burger")) alimentos.push("hamburguesa");
-   if(n.includes("salad")) alimentos.push("ensalada");
-   if(n.includes("banana")) alimentos.push("banana");
-   if(n.includes("chicken")) alimentos.push("pollo");
-  });
-
-  if(alimentos.length){
-    resultado.value = alimentos.join("+");
-  }
-
- },2000);
 }
 
-/* KCAL */
-function kcal(a){
- if(a==="pizza") return 280;
- if(a==="hamburguesa") return 320;
- if(a==="ensalada") return 120;
- if(a==="banana") return 90;
- if(a==="pollo") return 220;
- return 180;
-}
-
-/* GUARDAR */
+// GUARDAR
 async function guardar(){
-
- let parts=resultado.value.split("+");
- let total=0;
-
- parts.forEach(p=> total+=kcal(p));
-
  await fetch("/add",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({
     user_id:userData.id,
     fecha:new Date().toLocaleDateString(),
-    periodo:periodo.value,
     alimento:resultado.value,
-    tipo:tipo.value
+    tipo:tipo.value,
+    periodo:periodo.value
   })
  });
 
  cargar();
 }
 
-/* CARGAR */
+// CARGAR
 async function cargar(){
 
  let res=await fetch(`/data/${userData.id}`);
  let data=await res.json();
 
- render(data);
+ lista.innerHTML="";
+ data.forEach(d=>{
+  lista.innerHTML+=`<div>${d.fecha} - ${d.alimento}</div>`;
+ });
 }
 
-/* RENDER */
-function render(data){
+</script>
 
- lista.innerHTML="";
-
- let ansiedad=0;
-
+</body>
+</html>
