@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Nutricionista PRO MAX</title>
 
 <style>
@@ -17,7 +18,7 @@ body{font-family:Segoe UI;background:#edf1f7;margin:0}
  box-shadow:0 4px 10px rgba(0,0,0,.1);
 }
 
-input,select{
+input, select{
  width:100%;
  padding:8px;
  margin-top:5px;
@@ -35,18 +36,8 @@ button{
  color:white;
 }
 
-.sug{
- background:white;
- border:1px solid #ccc;
- border-radius:6px;
- max-height:150px;
- overflow:auto;
-}
-
-.sug div{
- padding:6px;
- cursor:pointer;
-}
+.sug{background:white;border:1px solid #ccc;border-radius:6px;max-height:150px;overflow:auto}
+.sug div{padding:6px;cursor:pointer}
 .sug div:hover{background:#eee}
 
 .kpi{padding:8px;border-radius:6px;color:white;text-align:center;margin-top:5px}
@@ -54,11 +45,7 @@ button{
 .green{background:#4CAF50}
 .orange{background:#FFA500}
 
-.receta img{
- width:100%;
- border-radius:6px;
- margin-top:5px;
-}
+.receta img{width:100%;border-radius:6px;margin-top:5px}
 </style>
 </head>
 
@@ -78,7 +65,6 @@ button{
 <div id="app" style="display:none">
 
 <div class="card">
-
 <input id="fecha" type="date">
 <input id="hora" type="time">
 
@@ -95,6 +81,8 @@ button{
 <option>Desayuno</option>
 <option>Almuerzo</option>
 <option>Cena</option>
+<option>Merienda</option>
+<option>Colación</option>
 </select>
 
 <input id="objetivo" type="number" value="2000">
@@ -104,12 +92,11 @@ button{
 <div class="kpi orange">Balance <span id="balance">0</span></div>
 
 <button onclick="guardar()">Guardar</button>
-
 </div>
 
 <!-- RECETAS -->
 <div class="card">
-<b>🍳 Recetas</b>
+<b>🍳 Recetas sugeridas</b>
 <div id="recetas"></div>
 </div>
 
@@ -122,9 +109,9 @@ button{
 
 <script>
 
-/* =========================
-   BASE INTELIGENTE
-========================= */
+/* ======================
+   BASE INTELIGENTE COMPLETA
+====================== */
 
 const platos={
 "milanesa":400,
@@ -138,7 +125,8 @@ const platos={
 "pizza muzzarella":300,
 "hamburguesa completa":600,
 "paella":500,
-"pasta con salsa":500
+"pasta con salsa":500,
+"pasta al pesto":520
 }
 
 const ingredientes={
@@ -146,10 +134,6 @@ const ingredientes={
 "papa":150,"papas":150,"tomate":40,
 "cebolla":40,"zanahoria":50
 }
-
-/* =========================
-   RECETAS (IMAGEN + LINK)
-========================= */
 
 const recetasDB={
 "carne con papas":{
@@ -167,19 +151,23 @@ const recetasDB={
 "milanesa":{
  img:"https://images.unsplash.com/photo-1600891964599-f61ba0e24092",
  link:"https://www.recetasgratis.net/receta-de-milanesas-53304.html"
+},
+"pizza muzzarella":{
+ img:"https://images.unsplash.com/photo-1548365328-9f547fb0953d",
+ link:"https://www.recetasgratis.net/receta-de-pizza-casera-212.html"
 }
 }
 
-/* =========================
+/* ======================
    VARIABLES
-========================= */
+====================== */
 
 let userData=null
 let data=[]
 
-/* =========================
-   AUTOCOMPLETE IA REAL
-========================= */
+/* ======================
+   AUTOCOMPLETE IA
+====================== */
 
 function autocomplete(){
 
@@ -196,8 +184,8 @@ function autocomplete(){
  if(txt.includes("carne") && txt.includes("papa"))
   html+=`<div onclick="select('carne con papas')">carne con papas</div>`
 
- if(txt.includes("pollo") && txt.includes("arroz"))
-  html+=`<div onclick="select('pollo con arroz')">pollo con arroz</div>`
+ if(txt.includes("pollo"))
+  html+=`<div onclick="select('pollo al horno')">pollo al horno</div>`
 
  sug.innerHTML=html
 }
@@ -208,21 +196,24 @@ function select(x){
  actualizar()
 }
 
-/* =========================
-   LOGIN SEGURO
-========================= */
+/* ======================
+   LOGIN SEGURO (FIX REAL)
+====================== */
 
 async function login(){
-
  try{
   let r = await fetch("/login",{
    method:"POST",
    headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({username:user.value,password:pass.value})
+   body:JSON.stringify({
+     username:user.value,
+     password:pass.value
+   })
   });
 
   if(!r.ok){
-   alert("Error login");
+   let txt=await r.text();
+   alert("Login error: "+txt);
    return;
   }
 
@@ -234,29 +225,37 @@ async function login(){
   cargar();
 
  }catch(e){
-  alert("Servidor no disponible");
+  alert("Error conexión servidor");
  }
 }
 
 async function register(){
+ try{
+  let r = await fetch("/register",{
+   method:"POST",
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({
+     username:user.value,
+     password:pass.value
+   })
+  });
 
- let r = await fetch("/register",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({username:user.value,password:pass.value})
- })
+  if(!r.ok){
+   let txt=await r.text();
+   alert("Register error: "+txt);
+   return;
+  }
 
- if(!r.ok){
-  alert("Error creando usuario");
-  return;
+  alert("Usuario creado correctamente");
+
+ }catch(e){
+  alert("Error conexión servidor");
  }
-
- alert("Usuario creado");
 }
 
-/* =========================
+/* ======================
    CALCULO INTELIGENTE
-========================= */
+====================== */
 
 function calc(txt){
 
@@ -269,7 +268,7 @@ function calc(txt){
   total+=ingredientes[p]||0
  })
 
- return total || 200
+ return total||200
 }
 
 function actualizar(){
@@ -288,14 +287,15 @@ function actualizar(){
  obj.innerText=objVal
 
  let bal=objVal-total
+
  balance.innerText = bal>=0 ? "Déficit "+bal : "Exceso "+Math.abs(bal)
 
  generarRecetas()
 }
 
-/* =========================
-   RECETAS PRO
-========================= */
+/* ======================
+   RECETAS CON IMAGEN + LINK
+====================== */
 
 function generarRecetas(){
 
@@ -307,17 +307,18 @@ function generarRecetas(){
    html+=`
    <div class="card receta">
     <b>${r}</b>
-    <{recetasDB[r].img}
-    <a href="${recetasDB[r].link}" target="_blank
+    ${recetasDB[r].img}
+    ${recetasDB[r].link}Ver receta completa</a>
+   </div>`
   }
  })
 
- recetas.innerHTML=html || "Sin recetas específicas"
+ recetas.innerHTML = html || "Sin recetas encontradas"
 }
 
-/* =========================
+/* ======================
    CRUD
-========================= */
+====================== */
 
 async function guardar(){
 
@@ -330,7 +331,9 @@ async function guardar(){
    user_id:userData.id,
    fecha:fecha.value,
    hora:hora.value,
-   alimento:resultado.value
+   alimento:resultado.value,
+   tipo:tipo.value,
+   periodo:periodo.value
   })
  })
 
@@ -343,9 +346,12 @@ async function cargar(){
  let r=await fetch(`/data/${userData.id}`)
  data=await r.json()
 
- lista.innerHTML=data.map(d=>
- `<div class="card">${d.fecha} ${d.hora}<br>${d.alimento}</div>`
- ).join("")
+ lista.innerHTML = data.map(d=>`
+ <div class="card">
+   ${d.fecha} ${d.hora}<br>
+   ${d.alimento}
+ </div>
+ `).join("")
 
  actualizar()
 }
