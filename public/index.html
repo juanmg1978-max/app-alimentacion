@@ -3,39 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Nutricionista PRO MAX</title>
 
 <style>
 body{font-family:Segoe UI;background:#edf1f7;margin:0}
 .container{max-width:420px;margin:auto;padding:15px}
 
-.card{background:white;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.card{
+ background:white;
+ border-radius:12px;
+ padding:12px;
+ margin-bottom:10px;
+ box-shadow:0 4px 12px rgba(0,0,0,.08)
+}
 
-button{width:100%;background:#305496;color:white;padding:10px;border:none;border-radius:8px;margin-top:5px}
+button{
+ width:100%;
+ background:#305496;
+ color:white;
+ padding:10px;
+ border:none;
+ border-radius:8px;
+ margin-top:5px
+}
 
-input,select{width:100%;padding:8px;margin-top:5px;border-radius:6px;border:1px solid #ccc}
+input,select{
+ width:100%;
+ padding:8px;
+ margin-top:5px;
+ border-radius:6px;
+ border:1px solid #ccc
+}
+
+video{
+ width:100%;
+ border-radius:10px
+}
 
 .sugerencias{
  background:white;
  border:1px solid #ccc;
- border-radius:8px;
- max-height:120px;
- overflow:auto;
- position:relative;
- z-index:5;
+ border-radius:6px;
+ max-height:150px;
+ overflow:auto
 }
 
 .sugerencias div{
  padding:6px;
- cursor:pointer;
+ cursor:pointer
 }
 
 .sugerencias div:hover{
- background:#eee;
+ background:#eee
 }
 
-.kpi{padding:8px;margin-top:5px;border-radius:8px;text-align:center;color:white}
+.kpi{
+ padding:8px;
+ margin-top:6px;
+ border-radius:6px;
+ text-align:center;
+ color:white
+}
+
 .blue{background:#305496}
 .green{background:#4CAF50}
 .orange{background:#FFA500}
@@ -46,6 +75,7 @@ input,select{width:100%;padding:8px;margin-top:5px;border-radius:6px;border:1px 
 
 <div class="container">
 
+<!-- LOGIN -->
 <div id="loginCard" class="card">
 <input id="user" placeholder="Usuario">
 <input id="pass" type="password">
@@ -55,10 +85,17 @@ input,select{width:100%;padding:8px;margin-top:5px;border-radius:6px;border:1px 
 
 <div id="app" style="display:none">
 
+<!-- CAMARA -->
+<div class="card">
+<video id="video" autoplay playsinline></video>
+<button onclick="startCamera()">Activar cámara</button>
+</div>
+
+<!-- INPUT -->
 <div class="card">
 
 <input id="resultado" placeholder="Buscar alimento..." oninput="autocompletar()">
-<div id="listaSug" class="sugerencias"></div>
+<div id="sug" class="sugerencias"></div>
 
 <select id="tipo">
 <option>Hambre</option>
@@ -84,6 +121,19 @@ input,select{width:100%;padding:8px;margin-top:5px;border-radius:6px;border:1px 
 
 </div>
 
+<!-- RECETAS -->
+<div class="card">
+<b>🍳 Recetas</b>
+<div id="recetas"></div>
+</div>
+
+<!-- PLAN -->
+<div class="card">
+<button onclick="generarPlan()">Generar plan semanal</button>
+<div id="planSem"></div>
+</div>
+
+<!-- HISTORIAL -->
 <div id="lista"></div>
 
 </div>
@@ -92,75 +142,92 @@ input,select{width:100%;padding:8px;margin-top:5px;border-radius:6px;border:1px 
 
 <script>
 
-let userData
-let data=[]
+/* ===== BASE ALIMENTOS PROFESIONAL ===== */
 
-/* BASE ALIMENTOS */
-const alimentos = {
-"pollo":220,
-"carne":250,
-"pescado":200,
+const alimentos={
 
-"pizza":280,
-"hamburguesa":320,
+// PROTEINAS
+"pollo":220,"pechuga":180,"carne":250,"carne magra":200,"cerdo":300,
+"pescado":200,"salmon":280,"atun":190,"huevo":140,"clara":20,
 
-"banana":90,
-"manzana":80,
-"pera":85,
+// CARBOHIDRATOS
+"arroz":130,"arroz integral":120,"pasta":160,"fideos":150,
+"pan":250,"pan integral":230,"papas":150,"batata":140,"quinoa":120,
 
-"ensalada":120,
-"tomate":40,
-"zanahoria":50,
+// LACTEOS
+"leche":120,"yogurt":140,"yogurt griego":180,
+"queso":300,"queso untable":250,"queso duro":350,
 
-"torta":350,
-"helado":300,
+// FRUTAS
+"banana":90,"manzana":80,"naranja":85,"mandarina":70,"pera":80,
+"kiwi":60,"frutilla":40,"uva":90,"mango":100,"piña":90,
+"durazno":60,"ciruela":70,
 
-"cafe":10,
-"jugo":120,
-"gaseosa":150
+// VERDURAS
+"lechuga":20,"tomate":40,"zanahoria":50,"cebolla":40,
+"pepino":20,"brocoli":35,"espinaca":30,"zapallo":60,"berenjena":50,
+
+// FAST FOOD
+"pizza":280,"hamburguesa":320,"papas fritas":350,"hot dog":290,"empanada":250,
+
+// POSTRES
+"torta":350,"chocolate":500,"galletas":450,"helado":300,"alfajor":250,"flan":200,
+
+// BEBIDAS
+"agua":0,"cafe":10,"te":5,"jugo":120,"jugo natural":90,
+"gaseosa":150,"cerveza":200,"vino":120,
+
+// OTROS
+"frutos secos":600,"nueces":650,"almendras":580,
+"manteca":700,"aceite de oliva":900
+
 };
 
-/* AUTOCOMPLETAR */
+let userData, data=[], stream;
+
+/* ===== AUTOCOMPLETE ===== */
+
 function autocompletar(){
 
- let v = resultado.value.toLowerCase()
+ let v=resultado.value.toLowerCase()
  let html=""
 
  if(!v){
-  listaSug.innerHTML=""
+  sug.innerHTML=""
   return
  }
 
- for(let a in alimentos){
-  if(a.includes(v)){
-   html+=`<div onclick="seleccionar('${a}')">${a}</div>`
-  }
- }
+ Object.keys(alimentos)
+  .filter(a => a.includes(v))
+  .slice(0,20)
+  .forEach(a=>{
+    html+=`<div onclick="seleccionar('${a}')">${a} (${alimentos[a]} kcal)</div>`
+  })
 
- listaSug.innerHTML=html
+ sug.innerHTML=html
 }
 
-/* SELECCION */
 function seleccionar(a){
-
  resultado.value=a
- listaSug.innerHTML=""
-
+ sug.innerHTML=""
  actualizar()
 }
 
-/* LOGIN */
+/* ===== LOGIN ===== */
+
 async function login(){
  let r=await fetch("/login",{method:"POST",
  headers:{'Content-Type':'application/json'},
  body:JSON.stringify({username:user.value,password:pass.value})
  })
- if(!r.ok)return alert("Error login")
+
+ if(!r.ok) return alert("Error login")
 
  userData=await r.json()
 
  loginCard.style.display="none"
  app.style.display="block"
+
  cargar()
 }
 
@@ -172,7 +239,15 @@ async function register(){
  alert("Usuario creado")
 }
 
-/* CALCULO */
+/* ===== CAMARA ===== */
+
+async function startCamera(){
+ stream=await navigator.mediaDevices.getUserMedia({video:true})
+ video.srcObject=stream
+}
+
+/* ===== CALCULOS ===== */
+
 function actualizar(){
 
  let total=0
@@ -188,17 +263,51 @@ function actualizar(){
  kcal.innerText=total
  obj.innerText=objVal
 
- let balance=objVal-total
+ let bal=objVal-total
 
- balance.innerText=balance>0
-  ? "Déficit: "+balance
-  : "Exceso: "+Math.abs(balance)
+ balance.innerText = bal>=0
+  ? "Déficit "+bal
+  : "Exceso "+Math.abs(bal)
+
+ recetas.innerText = receta(resultado.value)
 }
 
-/* GUARDAR */
+/* ===== RECETAS ===== */
+
+function receta(x){
+ x=x.toLowerCase()
+
+ if(x.includes("pollo")) return "🍗 pollo con arroz / pollo al horno"
+ if(x.includes("pizza")) return "🍕 pizza casera integral"
+ if(x.includes("hamburguesa")) return "🍔 hamburguesa saludable"
+ if(x.includes("ensalada")) return "🥗 ensalada completa"
+
+ return "🍽 comida balanceada"
+}
+
+/* ===== PLAN ===== */
+
+function generarPlan(){
+
+ let dias=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
+
+ let html=""
+
+ dias.forEach(d=>{
+  html+=`<b>${d}</b><br>`
+  html+=`Desayuno: fruta + bebida<br>`
+  html+=`Almuerzo: proteína + carbohidrato<br>`
+  html+=`Cena: liviana + vegetales<br><br>`
+ })
+
+ planSem.innerHTML=html
+}
+
+/* ===== CRUD ===== */
+
 async function guardar(){
 
- if(!resultado.value)return alert("Ingresar alimento")
+ if(!resultado.value) return alert("Ingresar alimento")
 
  await fetch("/add",{method:"POST",
  headers:{'Content-Type':'application/json'},
@@ -215,7 +324,6 @@ async function guardar(){
  cargar()
 }
 
-/* LOAD */
 async function cargar(){
 
  let r=await fetch(`/data/${userData.id}`)
