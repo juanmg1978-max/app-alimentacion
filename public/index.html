@@ -12,22 +12,16 @@
 <style>
 body{font-family:Segoe UI;background:#edf1f7;margin:0}
 .container{max-width:420px;margin:auto;padding:15px}
-
 .card{background:white;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
-
 button{width:100%;background:#305496;color:white;padding:10px;border:none;border-radius:8px;margin-top:5px}
-
 input,select{width:100%;padding:8px;margin-top:5px;border-radius:6px;border:1px solid #ccc}
-
 video,canvas{width:100%;border-radius:10px}
-
 .kpi{padding:8px;margin-top:5px;border-radius:8px;color:white;text-align:center}
 .blue{background:#305496}
 .green{background:#4CAF50}
 .orange{background:#FFA500}
 .red{background:#ff4d4d}
 </style>
-
 </head>
 
 <body>
@@ -41,7 +35,7 @@ video,canvas{width:100%;border-radius:10px}
 <button onclick="register()">Crear usuario</button>
 </div>
 
-<div id="app" style="display:none">
+<div id="app" style="display:none;">
 
 <!-- CAMARA -->
 <div class="card">
@@ -72,216 +66,8 @@ video,canvas{width:100%;border-radius:10px}
 <option>Colación</option>
 </select>
 
-<input id="objetivo" type="number" value="2000" placeholder="Objetivo kcal">
+<input id="objetivo" type="number" value="2000">
 
 <div class="kpi blue">Kcal día <span id="kcal">0</span></div>
 <div class="kpi green">Objetivo <span id="obj">2000</span></div>
 <div class="kpi orange">Balance <span id="balance">0</span></div>
-<div class="kpi red">Ansiedad % <span id="ansiedad">0%</span></div>
-
-<button onclick="guardar()">Guardar</button>
-
-</div>
-
-<!-- RECETAS -->
-<div class="card">
-<b>🍳 Recetas</b>
-<div id="recetas"></div>
-</div>
-
-<!-- PLAN -->
-<div class="card">
-<b>📅 Plan semanal</b>
-<button onclick="generarPlan()">Generar plan</button>
-<div id="planSemanal"></div>
-</div>
-
-<!-- HISTORIAL -->
-<div id="lista"></div>
-
-</div>
-
-</div>
-
-<script>
-
-let userData, model, stream=null, frontal=false, intervalo=null, data=[], modoManual=false
-
-mobilenet.load().then(m=>model=m)
-
-/* INPUT */
-resultado.addEventListener("input",()=>{
- modoManual=true
- actualizar()
-})
-
-/* LOGIN */
-async function login(){
- let r=await fetch("/login",{method:"POST",
- headers:{'Content-Type':'application/json'},
- body:JSON.stringify({username:user.value,password:pass.value})
- })
- if(!r.ok)return alert("Error login")
- userData=await r.json()
- loginCard.style.display="none"
- app.style.display="block"
- cargar()
-}
-
-async function register(){
- await fetch("/register",{method:"POST",
- headers:{'Content-Type':'application/json'},
- body:JSON.stringify({username:user.value,password:pass.value})
- })
- alert("Usuario creado")
-}
-
-/* CAMARA */
-async function startCamera(){
-
- if(stream){
-  stream.getTracks().forEach(t=>t.stop())
- }
-
- stream = await navigator.mediaDevices.getUserMedia({
-  video:{facingMode:frontal?"user":"environment"}
- })
-
- video.srcObject = stream
-
- iniciarIA()
-}
-
-function switchCam(){
- frontal=!frontal
- startCamera()
-}
-
-function capturar(){
- let canvas=document.getElementById("canvas")
- canvas.style.display="block"
- let ctx=canvas.getContext("2d")
- canvas.width=video.videoWidth
- canvas.height=video.videoHeight
- ctx.drawImage(video,0,0)
-}
-
-/* IA */
-function iniciarIA(){
- if(intervalo) clearInterval(intervalo)
-
- intervalo = setInterval(async()=>{
-  if(!model || modoManual) return
-  let p=await model.classify(video)
-  resultado.value = map(p[0].className)
-  actualizar()
- },2000)
-}
-
-function map(x){
- x=x.toLowerCase()
- if(x.includes("pizza"))return"pizza"
- if(x.includes("burger"))return"hamburguesa"
- if(x.includes("chicken"))return"pollo"
- if(x.includes("salad"))return"ensalada"
- return"comida"
-}
-
-/* CALCULOS */
-function kcalItem(x){
- if(x.includes("pizza"))return 280
- if(x.includes("hamburguesa"))return 320
- if(x.includes("pollo"))return 220
- if(x.includes("ensalada"))return 120
- return 180
-}
-
-function actualizar(){
-
- let total=0,ans=0
-
- data.forEach(d=>{
-  total+=kcalItem(d.alimento)
-  if(d.tipo==="Ansiedad") ans++
- })
-
- total+=kcalItem(resultado.value||"")
-
- let objVal=parseInt(document.getElementById("objetivo").value) || 2000
-
- let balance=objVal-total
-
- kcal.innerText=total
- obj.innerText=objVal
- document.getElementById("balance").innerText=balance
-
- let pct=data.length?Math.round(ans/data.length*100):0
- ansiedad.innerText=pct+"%"
-
- recetas.innerHTML=getRecetas(resultado.value)
-
-}
-
-/* RECETAS */
-function getRecetas(x){
- x=x.toLowerCase()
- if(x.includes("pollo"))return"🍗 pollo con arroz<br>🍗 pollo al horno"
- if(x.includes("pizza"))return"🍕 pizza casera<br>🍕 pizza integral"
- if(x.includes("hamburguesa"))return"🍔 casera saludable"
- if(x.includes("ensalada"))return"🥗 completa proteica"
- return"🍽 comida balanceada"
-}
-
-/* PLAN */
-function generarPlan(){
- let dias=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
- document.getElementById("planSemanal").innerHTML =
- dias.map(d=>`${d}: comida balanceada`).join("<br>")
-}
-
-/* CRUD */
-async function guardar(){
- await fetch("/add",{method:"POST",
- headers:{'Content-Type':'application/json'},
- body:JSON.stringify({
-  user_id:userData.id,
-  fecha:new Date().toLocaleDateString(),
-  alimento:resultado.value,
-  tipo:tipo.value,
-  periodo:periodo.value
- })
- })
- modoManual=false
- cargar()
-}
-
-async function borrar(id){
- await fetch("/delete",{method:"POST",
- headers:{'Content-Type':'application/json'},
- body:JSON.stringify({id})
- })
- cargar()
-}
-
-async function cargar(){
- let r=await fetch(`/data/${userData.id}`)
- data=await r.json()
- render()
-}
-
-function render(){
- lista.innerHTML=""
- data.forEach(d=>{
-  lista.innerHTML+=`
-  <div class="card">
-   ${d.alimento} - ${d.tipo}
-   <button onclick="borrar(${d.id})">🗑</button>
-  </div>`
- })
- actualizar()
-}
-
-</script>
-
-</body>
-</html>
