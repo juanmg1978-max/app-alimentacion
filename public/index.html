@@ -3,24 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nutricionista PRO MAX</title>
 
-<!-- ✅ SCRIPTS CORRECTOS -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+<title>Nutricionista PRO MAX</title>
 
 <style>
 body{font-family:Segoe UI;background:#edf1f7;margin:0}
 .container{max-width:420px;margin:auto;padding:15px}
+
 .card{background:white;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+
 button{width:100%;background:#305496;color:white;padding:10px;border:none;border-radius:8px;margin-top:5px}
+
 input,select{width:100%;padding:8px;margin-top:5px;border-radius:6px;border:1px solid #ccc}
-video,canvas{width:100%;border-radius:10px}
-.kpi{padding:8px;margin-top:5px;border-radius:8px;color:white;text-align:center}
+
+.sugerencias{
+ background:white;
+ border:1px solid #ccc;
+ border-radius:8px;
+ max-height:120px;
+ overflow:auto;
+ position:relative;
+ z-index:5;
+}
+
+.sugerencias div{
+ padding:6px;
+ cursor:pointer;
+}
+
+.sugerencias div:hover{
+ background:#eee;
+}
+
+.kpi{padding:8px;margin-top:5px;border-radius:8px;text-align:center;color:white}
 .blue{background:#305496}
 .green{background:#4CAF50}
 .orange{background:#FFA500}
-.red{background:#ff4d4d}
 </style>
 </head>
 
@@ -35,22 +53,12 @@ video,canvas{width:100%;border-radius:10px}
 <button onclick="register()">Crear usuario</button>
 </div>
 
-<div id="app" style="display:none;">
+<div id="app" style="display:none">
 
-<!-- CAMARA -->
-<div class="card">
-<video id="video" autoplay playsinline></video>
-<canvas id="canvas" style="display:none;"></canvas>
-
-<button onclick="startCamera()">Activar cámara</button>
-<button onclick="switchCam()">Cambiar cámara</button>
-<button onclick="capturar()">📸 Sacar foto</button>
-</div>
-
-<!-- REGISTRO -->
 <div class="card">
 
-<input id="resultado" placeholder="Alimento">
+<input id="resultado" placeholder="Buscar alimento..." oninput="autocompletar()">
+<div id="listaSug" class="sugerencias"></div>
 
 <select id="tipo">
 <option>Hambre</option>
@@ -68,6 +76,166 @@ video,canvas{width:100%;border-radius:10px}
 
 <input id="objetivo" type="number" value="2000">
 
-<div class="kpi blue">Kcal día <span id="kcal">0</span></div>
+<div class="kpi blue">Kcal <span id="kcal">0</span></div>
 <div class="kpi green">Objetivo <span id="obj">2000</span></div>
 <div class="kpi orange">Balance <span id="balance">0</span></div>
+
+<button onclick="guardar()">Guardar</button>
+
+</div>
+
+<div id="lista"></div>
+
+</div>
+
+</div>
+
+<script>
+
+let userData
+let data=[]
+
+/* BASE ALIMENTOS */
+const alimentos = {
+"pollo":220,
+"carne":250,
+"pescado":200,
+
+"pizza":280,
+"hamburguesa":320,
+
+"banana":90,
+"manzana":80,
+"pera":85,
+
+"ensalada":120,
+"tomate":40,
+"zanahoria":50,
+
+"torta":350,
+"helado":300,
+
+"cafe":10,
+"jugo":120,
+"gaseosa":150
+};
+
+/* AUTOCOMPLETAR */
+function autocompletar(){
+
+ let v = resultado.value.toLowerCase()
+ let html=""
+
+ if(!v){
+  listaSug.innerHTML=""
+  return
+ }
+
+ for(let a in alimentos){
+  if(a.includes(v)){
+   html+=`<div onclick="seleccionar('${a}')">${a}</div>`
+  }
+ }
+
+ listaSug.innerHTML=html
+}
+
+/* SELECCION */
+function seleccionar(a){
+
+ resultado.value=a
+ listaSug.innerHTML=""
+
+ actualizar()
+}
+
+/* LOGIN */
+async function login(){
+ let r=await fetch("/login",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({username:user.value,password:pass.value})
+ })
+ if(!r.ok)return alert("Error login")
+
+ userData=await r.json()
+
+ loginCard.style.display="none"
+ app.style.display="block"
+ cargar()
+}
+
+async function register(){
+ await fetch("/register",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({username:user.value,password:pass.value})
+ })
+ alert("Usuario creado")
+}
+
+/* CALCULO */
+function actualizar(){
+
+ let total=0
+
+ data.forEach(d=>{
+  total+= alimentos[d.alimento] || 180
+ })
+
+ total+= alimentos[resultado.value] || 0
+
+ let objVal=parseInt(objetivo.value)||2000
+
+ kcal.innerText=total
+ obj.innerText=objVal
+
+ let balance=objVal-total
+
+ balance.innerText=balance>0
+  ? "Déficit: "+balance
+  : "Exceso: "+Math.abs(balance)
+}
+
+/* GUARDAR */
+async function guardar(){
+
+ if(!resultado.value)return alert("Ingresar alimento")
+
+ await fetch("/add",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({
+  user_id:userData.id,
+  fecha:new Date().toLocaleDateString(),
+  alimento:resultado.value,
+  tipo:tipo.value,
+  periodo:periodo.value
+ })
+ })
+
+ resultado.value=""
+ cargar()
+}
+
+/* LOAD */
+async function cargar(){
+
+ let r=await fetch(`/data/${userData.id}`)
+ data=await r.json()
+
+ let html=""
+
+ data.forEach(d=>{
+  html+=`
+  <div class="card">
+   ${d.alimento}
+  </div>`
+ })
+
+ lista.innerHTML=html
+
+ actualizar()
+}
+
+</script>
+
+</body>
+</html>
