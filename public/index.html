@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Nutricionista PRO MAX</title>
 
 <style>
@@ -35,11 +36,6 @@ input,select{
  border:1px solid #ccc
 }
 
-video{
- width:100%;
- border-radius:10px
-}
-
 .sugerencias{
  background:white;
  border:1px solid #ccc;
@@ -57,17 +53,16 @@ video{
  background:#eee
 }
 
-.kpi{
- padding:8px;
- margin-top:6px;
- border-radius:6px;
- text-align:center;
- color:white
-}
-
+.kpi{padding:8px;margin-top:6px;border-radius:6px;text-align:center;color:white}
 .blue{background:#305496}
 .green{background:#4CAF50}
 .orange{background:#FFA500}
+
+.receta img{
+ width:100%;
+ border-radius:8px;
+ margin-top:5px
+}
 </style>
 </head>
 
@@ -75,7 +70,6 @@ video{
 
 <div class="container">
 
-<!-- LOGIN -->
 <div id="loginCard" class="card">
 <input id="user" placeholder="Usuario">
 <input id="pass" type="password">
@@ -85,16 +79,12 @@ video{
 
 <div id="app" style="display:none">
 
-<!-- CAMARA -->
-<div class="card">
-<video id="video" autoplay playsinline></video>
-<button onclick="startCamera()">Activar cámara</button>
-</div>
-
-<!-- INPUT -->
 <div class="card">
 
-<input id="resultado" placeholder="Buscar alimento..." oninput="autocompletar()">
+<input id="fecha" type="date">
+<input id="hora" type="time">
+
+<input id="resultado" placeholder="Ej: carne papas milanesa..." oninput="autocompleteAI()">
 <div id="sug" class="sugerencias"></div>
 
 <select id="tipo">
@@ -107,8 +97,6 @@ video{
 <option>Desayuno</option>
 <option>Almuerzo</option>
 <option>Cena</option>
-<option>Merienda</option>
-<option>Colación</option>
 </select>
 
 <input id="objetivo" type="number" value="2000">
@@ -121,16 +109,10 @@ video{
 
 </div>
 
-<!-- RECETAS -->
+<!-- RECETAS PRO -->
 <div class="card">
-<b>🍳 Recetas</b>
+<b>🍳 Recetas sugeridas</b>
 <div id="recetas"></div>
-</div>
-
-<!-- PLAN -->
-<div class="card">
-<button onclick="generarPlan()">Generar plan semanal</button>
-<div id="planSem"></div>
 </div>
 
 <!-- HISTORIAL -->
@@ -142,73 +124,75 @@ video{
 
 <script>
 
-/* ===== BASE ALIMENTOS PROFESIONAL ===== */
+let userData,data=[]
 
-const alimentos={
+/* ===== BASE PLATOS ===== */
 
-// PROTEINAS
-"pollo":220,"pechuga":180,"carne":250,"carne magra":200,"cerdo":300,
-"pescado":200,"salmon":280,"atun":190,"huevo":140,"clara":20,
+const platos={
+"milanesa":400,
+"milanesa con papas":550,
+"pollo al horno":300,
+"carne con papas":450,
+"guiso de carne":500,
+"pizza muzzarella":300,
+"hamburguesa completa":600,
+"pasta con salsa":500,
+"paella":500
+}
 
-// CARBOHIDRATOS
-"arroz":130,"arroz integral":120,"pasta":160,"fideos":150,
-"pan":250,"pan integral":230,"papas":150,"batata":140,"quinoa":120,
+/* ===== RECETAS PRO (con imagen + link) ===== */
 
-// LACTEOS
-"leche":120,"yogurt":140,"yogurt griego":180,
-"queso":300,"queso untable":250,"queso duro":350,
+const recetasDB={
 
-// FRUTAS
-"banana":90,"manzana":80,"naranja":85,"mandarina":70,"pera":80,
-"kiwi":60,"frutilla":40,"uva":90,"mango":100,"piña":90,
-"durazno":60,"ciruela":70,
+"carne con papas":{
+ img:"https://images.unsplash.com/photo-1604908177522-429cc5bf38b4",
+ link:"https://www.recetasgratis.net/receta-de-carne-con-papas-51354.html"
+},
 
-// VERDURAS
-"lechuga":20,"tomate":40,"zanahoria":50,"cebolla":40,
-"pepino":20,"brocoli":35,"espinaca":30,"zapallo":60,"berenjena":50,
+"guiso de carne":{
+ img:"https://images.unsplash.com/photo-1617196038435-c3da94c02010",
+ link:"https://www.recetasgratis.net/receta-de-guiso-de-carne-51072.html"
+},
 
-// FAST FOOD
-"pizza":280,"hamburguesa":320,"papas fritas":350,"hot dog":290,"empanada":250,
+"pollo al horno":{
+ img:"https://images.unsplash.com/photo-1588167056120-3a51e2c10b20",
+ link:"https://www.recetasgratis.net/receta-de-pollo-al-horno-51601.html"
+},
 
-// POSTRES
-"torta":350,"chocolate":500,"galletas":450,"helado":300,"alfajor":250,"flan":200,
+"milanesa":{
+ img:"https://images.unsplash.com/photo-1600891964599-f61ba0e24092",
+ link:"https://www.recetasgratis.net/receta-de-milanesas-53304.html"
+},
 
-// BEBIDAS
-"agua":0,"cafe":10,"te":5,"jugo":120,"jugo natural":90,
-"gaseosa":150,"cerveza":200,"vino":120,
+"pizza muzzarella":{
+ img:"https://images.unsplash.com/photo-1548365328-9f547fb0953d",
+ link:"https://www.recetasgratis.net/receta-de-pizza-casera-212.html"
+}
 
-// OTROS
-"frutos secos":600,"nueces":650,"almendras":580,
-"manteca":700,"aceite de oliva":900
+}
 
-};
+/* ===== AUTOCOMPLETE IA ===== */
 
-let userData, data=[], stream;
+function autocompleteAI(){
 
-/* ===== AUTOCOMPLETE ===== */
+ let txt=resultado.value.toLowerCase()
 
-function autocompletar(){
-
- let v=resultado.value.toLowerCase()
  let html=""
 
- if(!v){
-  sug.innerHTML=""
-  return
- }
+ Object.keys(platos)
+ .filter(p=>p.includes(txt))
+ .forEach(p=>{
+  html+=`<div onclick="select('${p}')">${p}</div>`
+ })
 
- Object.keys(alimentos)
-  .filter(a => a.includes(v))
-  .slice(0,20)
-  .forEach(a=>{
-    html+=`<div onclick="seleccionar('${a}')">${a} (${alimentos[a]} kcal)</div>`
-  })
+ if(txt.includes("carne") && txt.includes("papa"))
+  html+=`<div onclick="select('carne con papas')">carne con papas</div>`
 
  sug.innerHTML=html
 }
 
-function seleccionar(a){
- resultado.value=a
+function select(x){
+ resultado.value=x
  sug.innerHTML=""
  actualizar()
 }
@@ -220,14 +204,9 @@ async function login(){
  headers:{'Content-Type':'application/json'},
  body:JSON.stringify({username:user.value,password:pass.value})
  })
-
- if(!r.ok) return alert("Error login")
-
  userData=await r.json()
-
  loginCard.style.display="none"
  app.style.display="block"
-
  cargar()
 }
 
@@ -239,24 +218,21 @@ async function register(){
  alert("Usuario creado")
 }
 
-/* ===== CAMARA ===== */
+/* ===== CALCULO ===== */
 
-async function startCamera(){
- stream=await navigator.mediaDevices.getUserMedia({video:true})
- video.srcObject=stream
+function calcKcal(x){
+ return platos[x] || 200
 }
-
-/* ===== CALCULOS ===== */
 
 function actualizar(){
 
  let total=0
 
  data.forEach(d=>{
-  total+= alimentos[d.alimento] || 180
+  total+=calcKcal(d.alimento)
  })
 
- total+= alimentos[resultado.value] || 0
+ total+=calcKcal(resultado.value)
 
  let objVal=parseInt(objetivo.value)||2000
 
@@ -265,58 +241,51 @@ function actualizar(){
 
  let bal=objVal-total
 
- balance.innerText = bal>=0
+ balance.innerText = bal>0
   ? "Déficit "+bal
   : "Exceso "+Math.abs(bal)
 
- recetas.innerText = receta(resultado.value)
+ generarRecetas()
 }
 
-/* ===== RECETAS ===== */
+/* ===== RECETAS CON IMAGEN ===== */
 
-function receta(x){
- x=x.toLowerCase()
+function generarRecetas(){
 
- if(x.includes("pollo")) return "🍗 pollo con arroz / pollo al horno"
- if(x.includes("pizza")) return "🍕 pizza casera integral"
- if(x.includes("hamburguesa")) return "🍔 hamburguesa saludable"
- if(x.includes("ensalada")) return "🥗 ensalada completa"
-
- return "🍽 comida balanceada"
-}
-
-/* ===== PLAN ===== */
-
-function generarPlan(){
-
- let dias=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
+ let txt=resultado.value.toLowerCase()
 
  let html=""
 
- dias.forEach(d=>{
-  html+=`<b>${d}</b><br>`
-  html+=`Desayuno: fruta + bebida<br>`
-  html+=`Almuerzo: proteína + carbohidrato<br>`
-  html+=`Cena: liviana + vegetales<br><br>`
+ Object.keys(recetasDB).forEach(r=>{
+
+  if(txt.includes(r.split(" ")[0]) ){
+
+    html+=`
+    <div class="receta card">
+      <b>${r}</b><br>
+      <img src="${recetasDB[r]. <a href="${recetasDB[r].linkta completa</a>
+    </div>
+    `
+  }
+
  })
 
- planSem.innerHTML=html
+ if(!html) html="No hay recetas específicas, probar combinaciones"
+
+ recetas.innerHTML=html
 }
 
 /* ===== CRUD ===== */
 
 async function guardar(){
 
- if(!resultado.value) return alert("Ingresar alimento")
-
  await fetch("/add",{method:"POST",
  headers:{'Content-Type':'application/json'},
  body:JSON.stringify({
   user_id:userData.id,
-  fecha:new Date().toLocaleDateString(),
-  alimento:resultado.value,
-  tipo:tipo.value,
-  periodo:periodo.value
+  fecha:fecha.value,
+  hora:hora.value,
+  alimento:resultado.value
  })
  })
 
@@ -329,16 +298,12 @@ async function cargar(){
  let r=await fetch(`/data/${userData.id}`)
  data=await r.json()
 
- let html=""
-
- data.forEach(d=>{
-  html+=`
-  <div class="card">
+ lista.innerHTML=data.map(d=>`
+ <div class="card">
+   ${d.fecha} ${d.hora}<br>
    ${d.alimento}
-  </div>`
- })
-
- lista.innerHTML=html
+ </div>
+ `).join("")
 
  actualizar()
 }
