@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Nutricionista PRO MAX</title>
 
 <!-- ✅ SCRIPTS CORRECTOS -->
@@ -14,54 +13,26 @@
 body{font-family:Segoe UI;background:#edf1f7;margin:0}
 .container{max-width:420px;margin:auto;padding:15px}
 
-.card{
- background:white;
- border-radius:14px;
- padding:15px;
- margin-bottom:12px;
- box-shadow:0 6px 18px rgba(0,0,0,.08);
-}
+.card{background:white;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
 
-button{
- width:100%;
- background:#305496;
- color:white;
- border:none;
- padding:10px;
- border-radius:8px;
- margin-top:6px;
-}
+button{width:100%;background:#305496;color:white;padding:10px;border:none;border-radius:8px;margin-top:5px}
 
-input,select{
- width:100%;
- padding:8px;
- margin-top:6px;
- border-radius:8px;
- border:1px solid #ccc;
-}
+input,select{width:100%;padding:8px;margin-top:5px;border-radius:6px;border:1px solid #ccc}
 
 video,canvas{width:100%;border-radius:10px}
 
-.kpi{padding:8px;border-radius:8px;margin-top:6px;color:white;text-align:center}
+.kpi{padding:8px;margin-top:5px;border-radius:8px;color:white;text-align:center}
 .blue{background:#305496}
 .green{background:#4CAF50}
 .orange{background:#FFA500}
 .red{background:#ff4d4d}
-
-.manual{border:2px solid #4CAF50}
 </style>
+
 </head>
 
 <body>
 
 <div class="container">
-
-<div id="topbar" style="display:none;" class="card">
-<span id="usuario"></span>
-<button onclick="logout()">Salir</button>
-</div>
-
-<h3>🥗 Nutricionista PRO MAX</h3>
 
 <div id="loginCard" class="card">
 <input id="user" placeholder="Usuario">
@@ -70,16 +41,16 @@ video,canvas{width:100%;border-radius:10px}
 <button onclick="register()">Crear usuario</button>
 </div>
 
-<div id="app" style="display:none;">
+<div id="app" style="display:none">
 
 <!-- CAMARA -->
 <div class="card">
 <video id="video" autoplay playsinline></video>
-<canvas id="foto" style="display:none"></canvas>
+<canvas id="canvas" style="display:none;"></canvas>
 
 <button onclick="startCamera()">Activar cámara</button>
 <button onclick="switchCam()">Cambiar cámara</button>
-<button onclick="capturar()">📸 Foto</button>
+<button onclick="capturar()">📸 Sacar foto</button>
 </div>
 
 <!-- REGISTRO -->
@@ -101,7 +72,9 @@ video,canvas{width:100%;border-radius:10px}
 <option>Colación</option>
 </select>
 
-<div class="kpi blue">Kcal Día <span id="kcal">0</span></div>
+<input id="objetivo" type="number" value="2000" placeholder="Objetivo kcal">
+
+<div class="kpi blue">Kcal día <span id="kcal">0</span></div>
 <div class="kpi green">Objetivo <span id="obj">2000</span></div>
 <div class="kpi orange">Balance <span id="balance">0</span></div>
 <div class="kpi red">Ansiedad % <span id="ansiedad">0%</span></div>
@@ -119,13 +92,8 @@ video,canvas{width:100%;border-radius:10px}
 <!-- PLAN -->
 <div class="card">
 <b>📅 Plan semanal</b>
-<button onclick="plan()">Generar</button>
-<div id="plan"></div>
-</div>
-
-<!-- INSIGHT -->
-<div class="card">
-<div id="insight"></div>
+<button onclick="generarPlan()">Generar plan</button>
+<div id="planSemanal"></div>
 </div>
 
 <!-- HISTORIAL -->
@@ -137,61 +105,79 @@ video,canvas{width:100%;border-radius:10px}
 
 <script>
 
-let userData,model,stream,frontal=false,intervalo,modoManual=false,data=[]
+let userData, model, stream=null, frontal=false, intervalo=null, data=[], modoManual=false
 
 mobilenet.load().then(m=>model=m)
 
 /* INPUT */
 resultado.addEventListener("input",()=>{
  modoManual=true
- resultado.classList.add("manual")
- actualizarCalculo()
+ actualizar()
 })
 
 /* LOGIN */
 async function login(){
  let r=await fetch("/login",{method:"POST",
  headers:{'Content-Type':'application/json'},
- body:JSON.stringify({username:user.value,password:pass.value})})
+ body:JSON.stringify({username:user.value,password:pass.value})
+ })
  if(!r.ok)return alert("Error login")
  userData=await r.json()
- usuario.innerText=userData.username
  loginCard.style.display="none"
  app.style.display="block"
- topbar.style.display="block"
  cargar()
 }
 
 async function register(){
  await fetch("/register",{method:"POST",
  headers:{'Content-Type':'application/json'},
- body:JSON.stringify({username:user.value,password:pass.value})})
+ body:JSON.stringify({username:user.value,password:pass.value})
+ })
  alert("Usuario creado")
 }
 
-function logout(){location.reload()}
-
 /* CAMARA */
 async function startCamera(){
- if(stream)stream.getTracks().forEach(t=>t.stop())
- stream=await navigator.mediaDevices.getUserMedia({
+
+ if(stream){
+  stream.getTracks().forEach(t=>t.stop())
+ }
+
+ stream = await navigator.mediaDevices.getUserMedia({
   video:{facingMode:frontal?"user":"environment"}
  })
- video.srcObject=stream
- detectar()
+
+ video.srcObject = stream
+
+ iniciarIA()
 }
 
-function switchCam(){frontal=!frontal;startCamera()}
+function switchCam(){
+ frontal=!frontal
+ startCamera()
+}
 
 function capturar(){
- foto.style.display="block"
- let ctx=foto.getContext("2d")
- foto.width=video.videoWidth
- foto.height=video.videoHeight
+ let canvas=document.getElementById("canvas")
+ canvas.style.display="block"
+ let ctx=canvas.getContext("2d")
+ canvas.width=video.videoWidth
+ canvas.height=video.videoHeight
  ctx.drawImage(video,0,0)
 }
 
 /* IA */
+function iniciarIA(){
+ if(intervalo) clearInterval(intervalo)
+
+ intervalo = setInterval(async()=>{
+  if(!model || modoManual) return
+  let p=await model.classify(video)
+  resultado.value = map(p[0].className)
+  actualizar()
+ },2000)
+}
+
 function map(x){
  x=x.toLowerCase()
  if(x.includes("pizza"))return"pizza"
@@ -199,16 +185,6 @@ function map(x){
  if(x.includes("chicken"))return"pollo"
  if(x.includes("salad"))return"ensalada"
  return"comida"
-}
-
-function detectar(){
- if(intervalo)clearInterval(intervalo)
- intervalo=setInterval(async()=>{
-  if(!model||modoManual)return
-  let p=await model.classify(video)
-  resultado.value=map(p[0].className)
-  actualizarCalculo()
- },1500)
 }
 
 /* CALCULOS */
@@ -220,48 +196,47 @@ function kcalItem(x){
  return 180
 }
 
-function actualizarCalculo(){
+function actualizar(){
 
- let total=0,ansiedadC=0
+ let total=0,ans=0
 
  data.forEach(d=>{
   total+=kcalItem(d.alimento)
-  if(d.tipo==="Ansiedad")ansiedadC++
+  if(d.tipo==="Ansiedad") ans++
  })
 
- let actual=kcalItem(resultado.value||"")
- total+=actual
+ total+=kcalItem(resultado.value||"")
+
+ let objVal=parseInt(document.getElementById("objetivo").value) || 2000
+
+ let balance=objVal-total
 
  kcal.innerText=total
+ obj.innerText=objVal
+ document.getElementById("balance").innerText=balance
 
- let obj=2000
- let balance=obj-total
-
- obj.innerText=obj
- balance.innerText=balance
-
- let pct=data.length?Math.round(ansiedadC/data.length*100):0
+ let pct=data.length?Math.round(ans/data.length*100):0
  ansiedad.innerText=pct+"%"
 
- recetas.innerHTML=receta(resultado.value)
+ recetas.innerHTML=getRecetas(resultado.value)
 
- insight.innerText=balance>300?"Déficit":"OK"
 }
 
 /* RECETAS */
-function receta(x){
+function getRecetas(x){
  x=x.toLowerCase()
- if(x.includes("pollo"))return"pollo con arroz"
- if(x.includes("pizza"))return"pizza casera"
- if(x.includes("hamburguesa"))return"hamburguesa saludable"
- if(x.includes("ensalada"))return"ensalada completa"
- return"comida simple"
+ if(x.includes("pollo"))return"🍗 pollo con arroz<br>🍗 pollo al horno"
+ if(x.includes("pizza"))return"🍕 pizza casera<br>🍕 pizza integral"
+ if(x.includes("hamburguesa"))return"🍔 casera saludable"
+ if(x.includes("ensalada"))return"🥗 completa proteica"
+ return"🍽 comida balanceada"
 }
 
 /* PLAN */
-function plan(){
- let dias=["Lun","Mar","Mie","Jue","Vie","Sab","Dom"]
- plan.innerHTML=dias.map(d=>`${d}: comida balanceada`).join("<br>")
+function generarPlan(){
+ let dias=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
+ document.getElementById("planSemanal").innerHTML =
+ dias.map(d=>`${d}: comida balanceada`).join("<br>")
 }
 
 /* CRUD */
@@ -274,7 +249,8 @@ async function guardar(){
   alimento:resultado.value,
   tipo:tipo.value,
   periodo:periodo.value
- })})
+ })
+ })
  modoManual=false
  cargar()
 }
@@ -282,11 +258,11 @@ async function guardar(){
 async function borrar(id){
  await fetch("/delete",{method:"POST",
  headers:{'Content-Type':'application/json'},
- body:JSON.stringify({id})})
+ body:JSON.stringify({id})
+ })
  cargar()
 }
 
-/* LOAD */
 async function cargar(){
  let r=await fetch(`/data/${userData.id}`)
  data=await r.json()
@@ -302,7 +278,7 @@ function render(){
    <button onclick="borrar(${d.id})">🗑</button>
   </div>`
  })
- actualizarCalculo()
+ actualizar()
 }
 
 </script>
