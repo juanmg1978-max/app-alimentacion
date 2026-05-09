@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nutricionista PRO MAX</title>
 
-<!-- ✅ SCRIPTS CORRECTOS (ESTO ES LA CLAVE) -->
+<!-- ✅ SCRIPTS CORRECTOS (ANTES ESTABA EL ERROR ACÁ) -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
@@ -22,101 +22,3 @@ button{width:100%;padding:10px;margin-top:5px;border:none;border-radius:8px;back
 .blue{background:#305496}
 .green{background:#4CAF50}
 .orange{background:#FFA500}
-video{width:100%;border-radius:8px}
-.receta img{width:100%;border-radius:6px;margin-top:5px}
-</style>
-</head>
-
-<body>
-
-<div class="container">
-
-<!-- LOGIN -->
-<div id="loginCard" class="card">
-<input id="user" placeholder="Usuario">
-<input id="pass" type="password" placeholder="Password">
-<button onclick="login()">Login</button>
-<button onclick="register()">Crear usuario</button>
-</div>
-
-<!-- APP -->
-<div id="app" style="display:none">
-
-<div class="card">
-<video id="video" autoplay playsinline></video>
-<button onclick="activarCam()">📷 Activar cámara IA</button>
-</div>
-
-<div class="card">
-<input id="fecha" type="date">
-<input id="hora" type="time">
-
-<input id="resultado" placeholder="Ej: comí pollo con papas al horno..." oninput="autocompleteIA()">
-<div id="sug" class="sug"></div>
-
-<select id="tipo">
-<option>Hambre</option>
-<option>Ansiedad</option>
-<option>Otros</option>
-</select>
-
-<select id="periodo">
-<option>Desayuno</option>
-<option>Almuerzo</option>
-<option>Cena</option>
-</select>
-
-<input id="objetivo" type="number" value="2000">
-
-<div class="kpi blue">Kcal <span id="kcal">0</span></div>
-<div class="kpi green">Objetivo <span id="obj">2000</span></div>
-<div class="kpi orange">Balance <span id="balance">0</span></div>
-
-<button onclick="guardar()">Guardar</button>
-</div>
-
-<div class="card">
-<b>🍳 Recetas sugeridas</b>
-<div id="recetas"></div>
-</div>
-
-<div id="lista"></div>
-
-</div>
-</div>
-
-<script>
-
-/* =========================
-   BASES
-========================= */
-
-const platos={
-"pollo al horno":300,
-"pollo con arroz":400,
-"carne con papas":450,
-"guiso de carne":500,
-"milanesa":400,
-"milanesa napolitana":600,
-"pizza":300,
-"hamburguesa":550
-};
-
-const ingredientes={
-"pollo":220,"carne":250,"papas":150,"arroz":130
-};
-
-const recetasDB={
-"pollo al horno":{
- img:"https://images.unsplash.com/photo-1588167056120-3a51e2c10b20",
- link:"https://www.recetasgratis.net/receta-de-pollo-al-horno-51601.html"
-},
-"pollo con arroz":{
- img:"https://images.unsplash.com/photo-1604908177522-429cc5bf38b4",
- link:"https://www.recetasgratis.net/receta-de-arroz-con-pollo-29286.html"
-},
-"carne con papas":{
- img:"https://images.unsplash.com/photo-1604908177522-429cc5bf38b4",
- link:"https://www.recetasgratis.net/receta-de-carne-con-papas-51354.html"
-},
-"guiso de carne":{
