@@ -5,10 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nutricionista PRO MAX</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
-
-<style>
+<!-- ✅ SCRIPTS BIEN ESCRITOS -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfc="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobil
 body{font-family:Segoe UI;background:#f4f6fb;margin:0}
 .container{max-width:420px;margin:auto;padding:15px}
 .card{
@@ -42,10 +40,9 @@ video{width:100%;border-radius:10px}
  padding:10px;border-radius:10px;
  margin-bottom:10px;
 }
-.manual{
- border:2px solid #4CAF50!important;
-}
+.manual{border:2px solid #4CAF50!important;}
 </style>
+
 </head>
 
 <body>
@@ -107,27 +104,33 @@ let model
 let stream
 let frontal=false
 
-// ✅ controla si el usuario escribe manual
 let modoManual=false
 
+// ✅ MODELO IA
 mobilenet.load().then(m=>model=m)
 
-// 👉 detectar si el usuario escribe
+// ✅ INPUT MANUAL
 resultado.addEventListener("input",()=>{
  modoManual=true
  resultado.classList.add("manual")
 })
 
-// LOGIN
+// ✅ LOGIN
 async function login(){
 
  let r=await fetch("/login",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({username:user.value,password:pass.value})
+  body:JSON.stringify({
+    username:user.value,
+    password:pass.value
+  })
  });
 
- if(!r.ok) return alert("Error login")
+ if(!r.ok){
+  alert("Error login")
+  return
+ }
 
  userData=await r.json()
 
@@ -139,16 +142,24 @@ async function login(){
  cargar()
 }
 
+// ✅ REGISTER
 async function register(){
- await fetch("/register",{method:"POST",
- headers:{'Content-Type':'application/json'},
- body:JSON.stringify({username:user.value,password:pass.value})})
- alert("Creado")
+ await fetch("/register",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    username:user.value,
+    password:pass.value
+  })
+ });
+ alert("Usuario creado")
 }
 
+// ✅ LOGOUT
 function logout(){location.reload()}
 
-// CAMARA
+
+// ✅ CÁMARA
 async function startCamera(){
 
  if(stream) stream.getTracks().forEach(t=>t.stop())
@@ -158,6 +169,7 @@ async function startCamera(){
  })
 
  video.srcObject=stream
+
  detectar()
 }
 
@@ -166,7 +178,8 @@ function switchCam(){
  startCamera()
 }
 
-// IA
+
+// ✅ IA
 function map(txt){
 
  txt=txt.toLowerCase()
@@ -179,3 +192,95 @@ function map(txt){
  return "comida"
 }
 
+function detectar(){
+
+ setInterval(async ()=>{
+
+  if(!model) return
+  if(modoManual) return
+
+  let p=await model.classify(video)
+
+  resultado.value=map(p[0].className)
+
+ },1500)
+}
+
+
+// ✅ CRUD
+async function guardar(){
+
+ await fetch("/add",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+   user_id:userData.id,
+   fecha:new Date().toLocaleDateString(),
+   alimento:resultado.value,
+   tipo:tipo.value,
+   periodo:periodo.value
+  })
+ })
+
+ modoManual=false
+ resultado.classList.remove("manual")
+
+ cargar()
+}
+
+async function borrar(id){
+
+ if(confirm("Eliminar?")){
+  await fetch("/delete",{
+   method:"POST",
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({id})
+  })
+  cargar()
+ }
+}
+
+async function editar(d){
+
+ let nuevo=prompt("Editar",d.alimento)
+ if(!nuevo) return
+
+ await fetch("/update",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+   id:d.id,
+   alimento:nuevo,
+   tipo:d.tipo,
+   periodo:d.periodo
+  })
+ })
+
+ cargar()
+}
+
+
+// ✅ LOAD
+async function cargar(){
+
+ let r=await fetch(`/data/${userData.id}`)
+ let data=await r.json()
+
+ lista.innerHTML=""
+
+ data.forEach(d=>{
+  lista.innerHTML+=`
+  <div class="card">
+   <b>${d.alimento}</b><br>
+   ${d.tipo} - ${d.periodo}<br>
+   <button class="btn2" onclick='editar(${JSON.stringify(d)})'>✏️</button>
+   <button class="btn2" onclick='borrar(${d.id})'>🗑</button>
+  </div>
+  `
+ })
+}
+
+</script>
+
+</body>
+</html>
