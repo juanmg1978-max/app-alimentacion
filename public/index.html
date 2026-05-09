@@ -5,70 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nutricionista PRO MAX</title>
 
-<!-- ✅ SCRIPTS CORRECTOS (ESTO ERA EL ERROR ANTES) -->
-<script src="https://cdn.jsdelivr.net/npm/@js</script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+<!-- ✅ SCRIPTS CORRECTOS -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjsript src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
-body{
-  font-family:Segoe UI;
-  background:#f4f6fb;
-  margin:0;
-}
-
-.container{
-  max-width:420px;
-  margin:auto;
-  padding:15px;
-}
-
-.card{
-  background:white;
-  border-radius:16px;
-  padding:18px;
-  margin-bottom:15px;
-  box-shadow:0 8px 20px rgba(0,0,0,.08);
-}
-
-button{
-  width:100%;
-  background:#305496;
-  color:white;
-  border:none;
-  padding:12px;
-  border-radius:10px;
-  margin-top:8px;
-}
-
-.btn-row{
-  display:flex;
-  gap:5px;
-}
-
-input,select{
-  width:100%;
-  padding:10px;
-  margin-top:8px;
-  border-radius:10px;
-  border:1px solid #ccc;
-}
-
-video{
-  width:100%;
-  border-radius:10px;
-}
-
-.topbar{
-  background:#305496;
-  color:white;
-  padding:10px;
-  border-radius:10px;
-  margin-bottom:10px;
-  display:flex;
-  justify-content:space-between;
-}
+body{font-family:Segoe UI;background:#f4f6fb;margin:0}
+.container{max-width:420px;margin:auto;padding:15px}
+.card{background:white;border-radius:16px;padding:18px;margin-bottom:15px;box-shadow:0 8px 20px rgba(0,0,0,.08);}
+button{width:100%;background:#305496;color:white;border:none;padding:12px;border-radius:10px;margin-top:8px;}
+input,select{width:100%;padding:10px;margin-top:8px;border-radius:10px;border:1px solid #ccc;}
+video{width:100%;border-radius:10px}
+.topbar{display:flex;justify-content:space-between;background:#305496;color:white;padding:10px;border-radius:10px;margin-bottom:10px;}
 </style>
-
 </head>
 
 <body>
@@ -82,15 +30,13 @@ video{
 
 <h2>🥗 Nutricionista PRO MAX</h2>
 
-<!-- LOGIN -->
 <div id="loginCard" class="card">
 <input id="user" placeholder="Usuario">
-<input id="pass" type="password" placeholder="Password">
+<input id="pass" type="password">
 <button onclick="login()">Login</button>
 <button onclick="register()">Crear usuario</button>
 </div>
 
-<!-- APP -->
 <div id="app" style="display:none;">
 
 <div class="card">
@@ -128,18 +74,16 @@ video{
 <script>
 
 let userData=null;
-let model=null;
-let stream=null;
+let model;
+let stream;
 let frontal=false;
-let intervalo=null;
 
-/* ✅ IA */
-mobilenet.load().then(m=> model=m);
+mobilenet.load().then(m=> model = m);
 
-/* ✅ LOGIN */
+/* LOGIN */
 async function login(){
 
- const res = await fetch("/login",{
+ let res = await fetch("/login",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({
@@ -164,4 +108,86 @@ async function login(){
  cargar();
 }
 
-/* ✅ REGISTER */
+/* REGISTER */
+async function register(){
+
+ let res = await fetch("/register",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    username:user.value,
+    password:pass.value
+  })
+ });
+
+ if(!res.ok){
+  alert("Error al crear usuario");
+  return;
+ }
+
+ alert("Usuario creado");
+}
+
+function logout(){
+ location.reload();
+}
+
+/* CAMARA */
+async function startCamera(){
+
+ if(stream){
+  stream.getTracks().forEach(t=>t.stop());
+ }
+
+ stream = await navigator.mediaDevices.getUserMedia({
+  video:{facingMode:frontal ? "user":"environment"}
+ });
+
+ video.srcObject = stream;
+}
+
+function switchCam(){
+ frontal = !frontal;
+ startCamera();
+}
+
+/* CRUD */
+async function guardar(){
+
+ await fetch("/add",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+   user_id:userData.id,
+   fecha:new Date().toLocaleDateString(),
+   alimento:resultado.value,
+   tipo:tipo.value,
+   periodo:periodo.value
+  })
+ });
+
+ cargar();
+}
+
+/* LOAD */
+async function cargar(){
+
+ let res = await fetch(`/data/${userData.id}`);
+ let data = await res.json();
+
+ lista.innerHTML="";
+
+ data.forEach(d=>{
+  lista.innerHTML+=`
+    <div class="card">
+      <b>${d.alimento}</b><br>
+      ${d.tipo} - ${d.periodo}
+    </div>
+  `;
+ });
+}
+
+</script>
+
+</body>
+</html>
