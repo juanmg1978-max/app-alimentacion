@@ -3,38 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Nutricionista PRO MAX</title>
+
+<!-- IA VISUAL -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
 body{font-family:Segoe UI;background:#edf1f7;margin:0}
 .container{max-width:420px;margin:auto;padding:15px}
-
-.card{
- background:white;
- padding:12px;
- border-radius:10px;
- margin-bottom:10px;
- box-shadow:0 4px 10px rgba(0,0,0,.1);
-}
-
-input, select{
- width:100%;
- padding:8px;
- margin-top:5px;
- border-radius:6px;
- border:1px solid #ccc;
-}
-
-button{
- width:100%;
- padding:10px;
- margin-top:5px;
- border:none;
- border-radius:8px;
- background:#305496;
- color:white;
-}
+.card{background:white;padding:12px;border-radius:10px;margin-bottom:10px;box-shadow:0 4px 10px rgba(0,0,0,.1)}
+input,select{width:100%;padding:8px;margin-top:5px;border-radius:6px;border:1px solid #ccc}
+button{width:100%;padding:10px;margin-top:5px;border:none;border-radius:8px;background:#305496;color:white}
 
 .sug{background:white;border:1px solid #ccc;border-radius:6px;max-height:150px;overflow:auto}
 .sug div{padding:6px;cursor:pointer}
@@ -45,6 +25,7 @@ button{
 .green{background:#4CAF50}
 .orange{background:#FFA500}
 
+video{width:100%;border-radius:8px}
 .receta img{width:100%;border-radius:6px;margin-top:5px}
 </style>
 </head>
@@ -56,7 +37,7 @@ button{
 <!-- LOGIN -->
 <div id="loginCard" class="card">
 <input id="user" placeholder="Usuario">
-<input id="pass" type="password" placeholder="Password">
+<input id="pass" type="password">
 <button onclick="login()">Login</button>
 <button onclick="register()">Crear usuario</button>
 </div>
@@ -64,299 +45,10 @@ button{
 <!-- APP -->
 <div id="app" style="display:none">
 
+<!-- CAMARA IA -->
 <div class="card">
-<input id="fecha" type="date">
-<input id="hora" type="time">
-
-<input id="resultado" placeholder="Ej: carne papas milanesa..." oninput="autocomplete()">
-<div id="sug" class="sug"></div>
-
-<select id="tipo">
-<option>Hambre</option>
-<option>Ansiedad</option>
-<option>Otros</option>
-</select>
-
-<select id="periodo">
-<option>Desayuno</option>
-<option>Almuerzo</option>
-<option>Cena</option>
-<option>Merienda</option>
-<option>Colación</option>
-</select>
-
-<input id="objetivo" type="number" value="2000">
-
-<div class="kpi blue">Kcal <span id="kcal">0</span></div>
-<div class="kpi green">Objetivo <span id="obj">2000</span></div>
-<div class="kpi orange">Balance <span id="balance">0</span></div>
-
-<button onclick="guardar()">Guardar</button>
+<video id="video" autoplay playsinline></video>
+<button onclick="activarCam()">📷 Activar cámara IA</button>
 </div>
 
-<!-- RECETAS -->
-<div class="card">
-<b>🍳 Recetas sugeridas</b>
-<div id="recetas"></div>
-</div>
-
-<!-- HISTORIAL -->
-<div id="lista"></div>
-
-</div>
-
-</div>
-
-<script>
-
-/* ======================
-   BASE INTELIGENTE COMPLETA
-====================== */
-
-const platos={
-"milanesa":400,
-"milanesa con papas":550,
-"milanesa napolitana":600,
-"pollo al horno":300,
-"pollo con arroz":400,
-"carne con papas":450,
-"carne asada":350,
-"guiso de carne":500,
-"pizza muzzarella":300,
-"hamburguesa completa":600,
-"paella":500,
-"pasta con salsa":500,
-"pasta al pesto":520
-}
-
-const ingredientes={
-"carne":250,"pollo":220,"arroz":130,
-"papa":150,"papas":150,"tomate":40,
-"cebolla":40,"zanahoria":50
-}
-
-const recetasDB={
-"carne con papas":{
- img:"https://images.unsplash.com/photo-1604908177522-429cc5bf38b4",
- link:"https://www.recetasgratis.net/receta-de-carne-con-papas-51354.html"
-},
-"guiso de carne":{
- img:"https://images.unsplash.com/photo-1617196038435-c3da94c02010",
- link:"https://www.recetasgratis.net/receta-de-guiso-de-carne-51072.html"
-},
-"pollo al horno":{
- img:"https://images.unsplash.com/photo-1588167056120-3a51e2c10b20",
- link:"https://www.recetasgratis.net/receta-de-pollo-al-horno-51601.html"
-},
-"milanesa":{
- img:"https://images.unsplash.com/photo-1600891964599-f61ba0e24092",
- link:"https://www.recetasgratis.net/receta-de-milanesas-53304.html"
-},
-"pizza muzzarella":{
- img:"https://images.unsplash.com/photo-1548365328-9f547fb0953d",
- link:"https://www.recetasgratis.net/receta-de-pizza-casera-212.html"
-}
-}
-
-/* ======================
-   VARIABLES
-====================== */
-
-let userData=null
-let data=[]
-
-/* ======================
-   AUTOCOMPLETE IA
-====================== */
-
-function autocomplete(){
-
- let txt=resultado.value.toLowerCase()
- let html=""
-
- Object.keys(platos)
- .filter(p=>p.includes(txt))
- .slice(0,10)
- .forEach(p=>{
-  html+=`<div onclick="select('${p}')">${p}</div>`
- })
-
- if(txt.includes("carne") && txt.includes("papa"))
-  html+=`<div onclick="select('carne con papas')">carne con papas</div>`
-
- if(txt.includes("pollo"))
-  html+=`<div onclick="select('pollo al horno')">pollo al horno</div>`
-
- sug.innerHTML=html
-}
-
-function select(x){
- resultado.value=x
- sug.innerHTML=""
- actualizar()
-}
-
-/* ======================
-   LOGIN SEGURO (FIX REAL)
-====================== */
-
-async function login(){
- try{
-  let r = await fetch("/login",{
-   method:"POST",
-   headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({
-     username:user.value,
-     password:pass.value
-   })
-  });
-
-  if(!r.ok){
-   let txt=await r.text();
-   alert("Login error: "+txt);
-   return;
-  }
-
-  userData = await r.json();
-
-  loginCard.style.display="none";
-  app.style.display="block";
-
-  cargar();
-
- }catch(e){
-  alert("Error conexión servidor");
- }
-}
-
-async function register(){
- try{
-  let r = await fetch("/register",{
-   method:"POST",
-   headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({
-     username:user.value,
-     password:pass.value
-   })
-  });
-
-  if(!r.ok){
-   let txt=await r.text();
-   alert("Register error: "+txt);
-   return;
-  }
-
-  alert("Usuario creado correctamente");
-
- }catch(e){
-  alert("Error conexión servidor");
- }
-}
-
-/* ======================
-   CALCULO INTELIGENTE
-====================== */
-
-function calc(txt){
-
- txt=txt.toLowerCase()
-
- if(platos[txt]) return platos[txt]
-
- let total=0
- txt.split(" ").forEach(p=>{
-  total+=ingredientes[p]||0
- })
-
- return total||200
-}
-
-function actualizar(){
-
- let total=0
-
- data.forEach(d=>{
-  total+=calc(d.alimento)
- })
-
- total+=calc(resultado.value)
-
- let objVal=parseInt(objetivo.value)||2000
-
- kcal.innerText=total
- obj.innerText=objVal
-
- let bal=objVal-total
-
- balance.innerText = bal>=0 ? "Déficit "+bal : "Exceso "+Math.abs(bal)
-
- generarRecetas()
-}
-
-/* ======================
-   RECETAS CON IMAGEN + LINK
-====================== */
-
-function generarRecetas(){
-
- let txt=resultado.value.toLowerCase()
- let html=""
-
- Object.keys(recetasDB).forEach(r=>{
-  if(txt.includes(r.split(" ")[0])){
-   html+=`
-   <div class="card receta">
-    <b>${r}</b>
-    ${recetasDB[r].img}
-    ${recetasDB[r].link}Ver receta completa</a>
-   </div>`
-  }
- })
-
- recetas.innerHTML = html || "Sin recetas encontradas"
-}
-
-/* ======================
-   CRUD
-====================== */
-
-async function guardar(){
-
- if(!resultado.value) return alert("Ingresar alimento")
-
- await fetch("/add",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-   user_id:userData.id,
-   fecha:fecha.value,
-   hora:hora.value,
-   alimento:resultado.value,
-   tipo:tipo.value,
-   periodo:periodo.value
-  })
- })
-
- resultado.value=""
- cargar()
-}
-
-async function cargar(){
-
- let r=await fetch(`/data/${userData.id}`)
- data=await r.json()
-
- lista.innerHTML = data.map(d=>`
- <div class="card">
-   ${d.fecha} ${d.hora}<br>
-   ${d.alimento}
- </div>
- `).join("")
-
- actualizar()
-}
-
-</script>
-
-</body>
-</html>
+<!-- INPUT -->
