@@ -5,42 +5,68 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nutricionista PRO MAX</title>
 
-<!-- ✅ SCRIPTS CORRECTOS -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/trc="https://cdn.jsdelivr.net/npm/@tensorflow-modelsstyle>
-body{font-family:Segoe UI;background:#f4f6fb;margin:0}
-.container{max-width:420px;margin:auto;padding:15px}
+<!-- ✅ SCRIPTS CORRECTOS (ESTO ERA EL ERROR ANTES) -->
+<script src="https://cdn.jsdelivr.net/npm/@js</script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+
+<style>
+body{
+  font-family:Segoe UI;
+  background:#f4f6fb;
+  margin:0;
+}
+
+.container{
+  max-width:420px;
+  margin:auto;
+  padding:15px;
+}
+
 .card{
- background:white;
- border-radius:16px;
- padding:18px;
- margin-bottom:15px;
- box-shadow:0 8px 25px rgba(0,0,0,.08);
+  background:white;
+  border-radius:16px;
+  padding:18px;
+  margin-bottom:15px;
+  box-shadow:0 8px 20px rgba(0,0,0,.08);
 }
+
 button{
- width:100%;
- background:#305496;
- color:white;
- border:none;
- padding:12px;
- border-radius:10px;
- margin-top:8px;
+  width:100%;
+  background:#305496;
+  color:white;
+  border:none;
+  padding:12px;
+  border-radius:10px;
+  margin-top:8px;
 }
-.btn2{width:48%}
+
+.btn-row{
+  display:flex;
+  gap:5px;
+}
+
 input,select{
- width:100%;
- padding:10px;
- margin-top:8px;
- border-radius:10px;
- border:1px solid #ccc;
+  width:100%;
+  padding:10px;
+  margin-top:8px;
+  border-radius:10px;
+  border:1px solid #ccc;
 }
-video{width:100%;border-radius:10px}
+
+video{
+  width:100%;
+  border-radius:10px;
+}
+
 .topbar{
- display:flex;justify-content:space-between;
- background:#305496;color:white;
- padding:10px;border-radius:10px;
- margin-bottom:10px;
+  background:#305496;
+  color:white;
+  padding:10px;
+  border-radius:10px;
+  margin-bottom:10px;
+  display:flex;
+  justify-content:space-between;
 }
-.manual{border:2px solid #4CAF50!important;}
 </style>
 
 </head>
@@ -59,7 +85,7 @@ video{width:100%;border-radius:10px}
 <!-- LOGIN -->
 <div id="loginCard" class="card">
 <input id="user" placeholder="Usuario">
-<input id="pass" type="password">
+<input id="pass" type="password" placeholder="Password">
 <button onclick="login()">Login</button>
 <button onclick="register()">Crear usuario</button>
 </div>
@@ -101,28 +127,19 @@ video{width:100%;border-radius:10px}
 
 <script>
 
-let userData=null
-let model
-let stream
-let frontal=false
-let modoManual=false
+let userData=null;
+let model=null;
+let stream=null;
+let frontal=false;
+let intervalo=null;
 
-// ✅ IA
-mobilenet.load().then(m=>model=m)
+/* ✅ IA */
+mobilenet.load().then(m=> model=m);
 
-// ✅ detectar escritura manual
-document.addEventListener("DOMContentLoaded",()=>{
- let input=document.getElementById("resultado")
- input.addEventListener("input",()=>{
-  modoManual=true
-  input.classList.add("manual")
- })
-})
-
-// ✅ LOGIN
+/* ✅ LOGIN */
 async function login(){
 
- let r=await fetch("/login",{
+ const res = await fetch("/login",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({
@@ -131,46 +148,20 @@ async function login(){
   })
  });
 
- if(!r.ok){
-  alert("Error login")
-  return
+ if(!res.ok){
+  alert("Error login");
+  return;
  }
 
- userData=await r.json()
+ userData = await res.json();
 
- usuario.innerText="👤 "+userData.username
- loginCard.style.display="none"
- app.style.display="block"
- topbar.style.display="flex"
+ usuario.innerText="👤 "+userData.username;
 
- cargar()
+ loginCard.style.display="none";
+ app.style.display="block";
+ topbar.style.display="flex";
+
+ cargar();
 }
 
-// ✅ REGISTER
-async function register(){
-
- let r=await fetch("/register",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-    username:user.value,
-    password:pass.value
-  })
- });
-
- if(!r.ok){
-  alert("Error register")
-  return
- }
-
- alert("Usuario creado")
-}
-
-function logout(){location.reload()}
-
-// ✅ CÁMARA
-async function startCamera(){
-
- if(stream) stream.getTracks().forEach(t=>t.stop())
-
- stream=await navigator.mediaDevices.getUserMedia({
+/* ✅ REGISTER */
