@@ -3,19 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Nutricionista PRO MAX</title>
 
 <!-- ✅ SCRIPTS CORRECTOS -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjsript src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
-body{font-family:Segoe UI;background:#f4f6fb;margin:0}
+body{font-family:Segoe UI;background:#edf1f7;margin:0}
 .container{max-width:420px;margin:auto;padding:15px}
-.card{background:white;border-radius:16px;padding:18px;margin-bottom:15px;box-shadow:0 8px 20px rgba(0,0,0,.08);}
-button{width:100%;background:#305496;color:white;border:none;padding:12px;border-radius:10px;margin-top:8px;}
-input,select{width:100%;padding:10px;margin-top:8px;border-radius:10px;border:1px solid #ccc;}
-video{width:100%;border-radius:10px}
-.topbar{display:flex;justify-content:space-between;background:#305496;color:white;padding:10px;border-radius:10px;margin-bottom:10px;}
+
+.card{
+ background:white;
+ border-radius:14px;
+ padding:15px;
+ margin-bottom:12px;
+ box-shadow:0 6px 18px rgba(0,0,0,.08);
+}
+
+button{
+ width:100%;
+ background:#305496;
+ color:white;
+ border:none;
+ padding:10px;
+ border-radius:8px;
+ margin-top:6px;
+}
+
+input,select{
+ width:100%;
+ padding:8px;
+ margin-top:6px;
+ border-radius:8px;
+ border:1px solid #ccc;
+}
+
+video,canvas{width:100%;border-radius:10px}
+
+.kpi{padding:8px;border-radius:8px;margin-top:6px;color:white;text-align:center}
+.blue{background:#305496}
+.green{background:#4CAF50}
+.orange{background:#FFA500}
+.red{background:#ff4d4d}
+
+.manual{border:2px solid #4CAF50}
 </style>
 </head>
 
@@ -23,12 +56,12 @@ video{width:100%;border-radius:10px}
 
 <div class="container">
 
-<div id="topbar" class="topbar" style="display:none;">
+<div id="topbar" style="display:none;" class="card">
 <span id="usuario"></span>
 <button onclick="logout()">Salir</button>
 </div>
 
-<h2>🥗 Nutricionista PRO MAX</h2>
+<h3>🥗 Nutricionista PRO MAX</h3>
 
 <div id="loginCard" class="card">
 <input id="user" placeholder="Usuario">
@@ -39,20 +72,27 @@ video{width:100%;border-radius:10px}
 
 <div id="app" style="display:none;">
 
+<!-- CAMARA -->
 <div class="card">
-<b>📷 Cámara</b>
 <video id="video" autoplay playsinline></video>
+<canvas id="foto" style="display:none"></canvas>
+
 <button onclick="startCamera()">Activar cámara</button>
 <button onclick="switchCam()">Cambiar cámara</button>
+<button onclick="capturar()">📸 Foto</button>
 </div>
 
+<!-- REGISTRO -->
 <div class="card">
+
 <input id="resultado" placeholder="Alimento">
+
 <select id="tipo">
 <option>Hambre</option>
 <option>Ansiedad</option>
 <option>Otros</option>
 </select>
+
 <select id="periodo">
 <option>Desayuno</option>
 <option>Almuerzo</option>
@@ -60,12 +100,36 @@ video{width:100%;border-radius:10px}
 <option>Merienda</option>
 <option>Colación</option>
 </select>
+
+<div class="kpi blue">Kcal Día <span id="kcal">0</span></div>
+<div class="kpi green">Objetivo <span id="obj">2000</span></div>
+<div class="kpi orange">Balance <span id="balance">0</span></div>
+<div class="kpi red">Ansiedad % <span id="ansiedad">0%</span></div>
+
 <button onclick="guardar()">Guardar</button>
+
 </div>
 
+<!-- RECETAS -->
 <div class="card">
-<div id="lista"></div>
+<b>🍳 Recetas</b>
+<div id="recetas"></div>
 </div>
+
+<!-- PLAN -->
+<div class="card">
+<b>📅 Plan semanal</b>
+<button onclick="plan()">Generar</button>
+<div id="plan"></div>
+</div>
+
+<!-- INSIGHT -->
+<div class="card">
+<div id="insight"></div>
+</div>
+
+<!-- HISTORIAL -->
+<div id="lista"></div>
 
 </div>
 
@@ -73,118 +137,172 @@ video{width:100%;border-radius:10px}
 
 <script>
 
-let userData=null;
-let model;
-let stream;
-let frontal=false;
+let userData,model,stream,frontal=false,intervalo,modoManual=false,data=[]
 
-mobilenet.load().then(m=> model = m);
+mobilenet.load().then(m=>model=m)
+
+/* INPUT */
+resultado.addEventListener("input",()=>{
+ modoManual=true
+ resultado.classList.add("manual")
+ actualizarCalculo()
+})
 
 /* LOGIN */
 async function login(){
-
- let res = await fetch("/login",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-    username:user.value,
-    password:pass.value
-  })
- });
-
- if(!res.ok){
-  alert("Error login");
-  return;
- }
-
- userData = await res.json();
-
- usuario.innerText="👤 "+userData.username;
-
- loginCard.style.display="none";
- app.style.display="block";
- topbar.style.display="flex";
-
- cargar();
+ let r=await fetch("/login",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({username:user.value,password:pass.value})})
+ if(!r.ok)return alert("Error login")
+ userData=await r.json()
+ usuario.innerText=userData.username
+ loginCard.style.display="none"
+ app.style.display="block"
+ topbar.style.display="block"
+ cargar()
 }
 
-/* REGISTER */
 async function register(){
-
- let res = await fetch("/register",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-    username:user.value,
-    password:pass.value
-  })
- });
-
- if(!res.ok){
-  alert("Error al crear usuario");
-  return;
- }
-
- alert("Usuario creado");
+ await fetch("/register",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({username:user.value,password:pass.value})})
+ alert("Usuario creado")
 }
 
-function logout(){
- location.reload();
-}
+function logout(){location.reload()}
 
 /* CAMARA */
 async function startCamera(){
-
- if(stream){
-  stream.getTracks().forEach(t=>t.stop());
- }
-
- stream = await navigator.mediaDevices.getUserMedia({
-  video:{facingMode:frontal ? "user":"environment"}
- });
-
- video.srcObject = stream;
+ if(stream)stream.getTracks().forEach(t=>t.stop())
+ stream=await navigator.mediaDevices.getUserMedia({
+  video:{facingMode:frontal?"user":"environment"}
+ })
+ video.srcObject=stream
+ detectar()
 }
 
-function switchCam(){
- frontal = !frontal;
- startCamera();
+function switchCam(){frontal=!frontal;startCamera()}
+
+function capturar(){
+ foto.style.display="block"
+ let ctx=foto.getContext("2d")
+ foto.width=video.videoWidth
+ foto.height=video.videoHeight
+ ctx.drawImage(video,0,0)
+}
+
+/* IA */
+function map(x){
+ x=x.toLowerCase()
+ if(x.includes("pizza"))return"pizza"
+ if(x.includes("burger"))return"hamburguesa"
+ if(x.includes("chicken"))return"pollo"
+ if(x.includes("salad"))return"ensalada"
+ return"comida"
+}
+
+function detectar(){
+ if(intervalo)clearInterval(intervalo)
+ intervalo=setInterval(async()=>{
+  if(!model||modoManual)return
+  let p=await model.classify(video)
+  resultado.value=map(p[0].className)
+  actualizarCalculo()
+ },1500)
+}
+
+/* CALCULOS */
+function kcalItem(x){
+ if(x.includes("pizza"))return 280
+ if(x.includes("hamburguesa"))return 320
+ if(x.includes("pollo"))return 220
+ if(x.includes("ensalada"))return 120
+ return 180
+}
+
+function actualizarCalculo(){
+
+ let total=0,ansiedadC=0
+
+ data.forEach(d=>{
+  total+=kcalItem(d.alimento)
+  if(d.tipo==="Ansiedad")ansiedadC++
+ })
+
+ let actual=kcalItem(resultado.value||"")
+ total+=actual
+
+ kcal.innerText=total
+
+ let obj=2000
+ let balance=obj-total
+
+ obj.innerText=obj
+ balance.innerText=balance
+
+ let pct=data.length?Math.round(ansiedadC/data.length*100):0
+ ansiedad.innerText=pct+"%"
+
+ recetas.innerHTML=receta(resultado.value)
+
+ insight.innerText=balance>300?"Déficit":"OK"
+}
+
+/* RECETAS */
+function receta(x){
+ x=x.toLowerCase()
+ if(x.includes("pollo"))return"pollo con arroz"
+ if(x.includes("pizza"))return"pizza casera"
+ if(x.includes("hamburguesa"))return"hamburguesa saludable"
+ if(x.includes("ensalada"))return"ensalada completa"
+ return"comida simple"
+}
+
+/* PLAN */
+function plan(){
+ let dias=["Lun","Mar","Mie","Jue","Vie","Sab","Dom"]
+ plan.innerHTML=dias.map(d=>`${d}: comida balanceada`).join("<br>")
 }
 
 /* CRUD */
 async function guardar(){
+ await fetch("/add",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({
+  user_id:userData.id,
+  fecha:new Date().toLocaleDateString(),
+  alimento:resultado.value,
+  tipo:tipo.value,
+  periodo:periodo.value
+ })})
+ modoManual=false
+ cargar()
+}
 
- await fetch("/add",{
-  method:"POST",
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-   user_id:userData.id,
-   fecha:new Date().toLocaleDateString(),
-   alimento:resultado.value,
-   tipo:tipo.value,
-   periodo:periodo.value
-  })
- });
-
- cargar();
+async function borrar(id){
+ await fetch("/delete",{method:"POST",
+ headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({id})})
+ cargar()
 }
 
 /* LOAD */
 async function cargar(){
+ let r=await fetch(`/data/${userData.id}`)
+ data=await r.json()
+ render()
+}
 
- let res = await fetch(`/data/${userData.id}`);
- let data = await res.json();
-
- lista.innerHTML="";
-
+function render(){
+ lista.innerHTML=""
  data.forEach(d=>{
   lista.innerHTML+=`
-    <div class="card">
-      <b>${d.alimento}</b><br>
-      ${d.tipo} - ${d.periodo}
-    </div>
-  `;
- });
+  <div class="card">
+   ${d.alimento} - ${d.tipo}
+   <button onclick="borrar(${d.id})">🗑</button>
+  </div>`
+ })
+ actualizarCalculo()
 }
 
 </script>
